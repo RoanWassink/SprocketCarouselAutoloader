@@ -107,3 +107,6 @@ There are **52,963 geometry assertions**. Startup also checks native finite stor
 Created by RoanWassink with AI assistance. Uses Sprocket's native ammunition storage and loading system through BepInEx 6 IL2CPP and Harmony. The mod-loader environment is also used by Hans21223's *Sprocket Quality of Life*.
 
 Released under the [MIT License](LICENSE).
+## Donations
+For ChatGPT budget. Helps me reverse engineer sprocket to add cool mods. 
+https://www.paypal.com/donate/?hosted_button_id=7PE3SDBETXFQ6
