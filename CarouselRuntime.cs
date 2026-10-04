@@ -48,16 +48,8 @@ internal static class CarouselRuntime
     }
     internal static IEnumerable<TurretBasket> Baskets(Cannon cannon)
     {
-        var objects = cannon.Vehicle.ObjectReader.Items;
-        for (int i = 0; i < Count(objects); i++)
-        {
-            var components = objects[i].Components;
-            for (int j = 0; j < Count(components); j++)
-            {
-                var basket = components[j].TryCast<TurretBasket>();
-                if (basket != null && basket.IsInstalled && SameTurret(basket, cannon)) yield return basket;
-            }
-        }
+        foreach (var basket in VehicleLoadIndex.Get(cannon).Baskets)
+            if (basket.IsInstalled) yield return basket;
     }
     private static VehicleObject? Turret(VehicleComponent component)
     {
@@ -256,6 +248,7 @@ internal static class CarouselRuntime
             appended[appended.Length - 1] = contributor.Cast<ILoadTaskContributor>();
             weapon.LoadTaskContributors = appended;
             AutoLoaders[__instance.Pointer] = new(__instance, task, contributor);
+            loaderBindings = AutoLoaders.Values.ToArray();
             Plugin.ModLog.LogInfo($"[Carousel] Native automatic loader attached to cannon {__instance.VUID.Value}; no crew-seat role required.");
         });
     }
@@ -277,9 +270,10 @@ internal static class CarouselRuntime
     [HarmonyPrefix, HarmonyPatch(typeof(VehicleWeaponLoadController), nameof(VehicleWeaponLoadController.Update))]
     private static void RefreshNativeLoaders()
     {
+        if (!loaderRefresh.Enter(Time.frameCount)) return;
         Guard("Refresh native automatic loaders", () =>
         {
-            foreach (var binding in AutoLoaders.Values.ToArray())
+            foreach (var binding in loaderBindings)
             {
                 var task = binding.Task;
                 if (task.State != LoadState.Loading && task.State != LoadState.Loaded) SelectSupply(task);
@@ -290,8 +284,13 @@ internal static class CarouselRuntime
             }
         });
     }
+    private static readonly OncePerFrame loaderRefresh = new();
+    private static AutoLoaderBinding[] loaderBindings = Array.Empty<AutoLoaderBinding>();
     [HarmonyPrefix, HarmonyPatch(typeof(Cannon), nameof(Cannon.DisableBehaviour))]
-    private static void DetachNativeLoader(Cannon __instance) => AutoLoaders.Remove(__instance.Pointer);
+    private static void DetachNativeLoader(Cannon __instance)
+    {
+        if (AutoLoaders.Remove(__instance.Pointer)) loaderBindings = AutoLoaders.Values.ToArray();
+    }
     [HarmonyFinalizer, HarmonyPatch(typeof(AllOperablesValidCriterion), nameof(AllOperablesValidCriterion.Validate))]
     private static void RestoreOperables(AllOperablesValidCriterion __instance,
         Il2CppSystem.Collections.Generic.IEnumerable<VehicleOperable>? __state)

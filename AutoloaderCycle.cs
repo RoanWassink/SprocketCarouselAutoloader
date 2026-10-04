@@ -21,11 +21,13 @@ internal static class AutoloaderCycle
     [HarmonyPrefix, HarmonyPriority(Priority.Last), HarmonyPatch(typeof(LoadTask), nameof(LoadTask.Update))]
     private static bool RapidCycle(LoadTask __instance, float __0, float __1, float __2, float __3)
     {
-        if (Substeps.Contains(__instance.Pointer) || __3 <= 0 || !float.IsFinite(__3)) return true;
+        if (__instance.State != LoadState.Loading || MagazineRefill.Waiting(__instance) ||
+            Substeps.Contains(__instance.Pointer) || __3 <= 0 || !float.IsFinite(__3)) return true;
         var seconds = Seconds(__instance);
-        if (seconds <= 0 || seconds >= .5) return true;
+        int steps = LoadWorkPolicy.Steps(true, false, seconds, __3);
+        if (steps == 1) return true;
         Substeps.Add(__instance.Pointer);
-        try { for (int i = 0; i < 8; i++) __instance.Update(__0, __1, __2, __3 / 8); }
+        try { for (int i = 0; i < steps; i++) __instance.Update(__0, __1, __2, __3 / steps); }
         finally { Substeps.Remove(__instance.Pointer); }
         return false;
     }

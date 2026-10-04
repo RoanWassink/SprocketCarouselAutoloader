@@ -6,6 +6,7 @@ using Sprocket.Vehicles.Weapons;
 using Sprocket.WeaponFramework;
 using Sprocket.DamageModelling;
 using Il2CppSystem.Runtime.Serialization;
+using UnityEngine;
 
 namespace SprocketCarouselAutoloader;
 
@@ -24,6 +25,12 @@ internal sealed class BustleState
     internal IntPtr RefillSource;
     internal int RefillFrame = -1;
     internal string RefillStatus = "";
+    internal AmmoRack? RefillRack;
+    internal VehicleComponentPath? RefillPath;
+    internal int EligibleFrame = -1, DistanceFrame = -1, ReloadFrame = -1;
+    internal IntPtr CachedCannon;
+    internal bool CachedEligible;
+    internal double CachedDistance, CachedSeconds;
     internal BustleState(AmmoRack rack) => Rack = rack;
 }
 
@@ -49,22 +56,26 @@ internal static class BustleRuntime
     }
     internal static IEnumerable<BustleState> Racks(Cannon cannon)
     {
-        var objects = cannon.Vehicle.ObjectReader.Items;
-        for (int i = 0; i < Count(objects); i++)
+        return VehicleLoadIndex.Get(cannon).Bustles;
+    }
+    internal static void InvalidateRuntimeCaches()
+    {
+        foreach (var state in States.Values)
         {
-            var parts = objects[i].Components;
-            for (int j = 0; j < Count(parts); j++)
-            {
-                var rack = parts[j].TryCast<AmmoRack>();
-                if (rack != null && rack.IsInstalled && IsPart(rack) && CarouselRuntime.SameTurret(rack, cannon))
-                    yield return State(rack);
-            }
+            state.EligibleFrame = state.DistanceFrame = state.ReloadFrame = -1;
+            state.RefillRack = null; state.RefillPath = null;
         }
     }
-    internal static bool Eligible(BustleState state, Cannon cannon) => state.Enabled && state.CannonId == cannon.VUID.Value &&
-        state.Rack.IsInstalled && state.Rack.HealthFraction > 0 && state.Rack.Capacity > 0 &&
-        state.Rack.ShellSizeBlueprintID == cannon.ShellSizeBlueprintID && CarouselRuntime.SameTurret(state.Rack, cannon) &&
-        Distance(state, cannon) < MaximumDistance;
+    internal static bool Eligible(BustleState state, Cannon cannon)
+    {
+        // Live health/installation checks still precede cached spatial checks.
+        if (!state.Enabled || state.CannonId != cannon.VUID.Value || !state.Rack.IsInstalled || state.Rack.HealthFraction <= 0) return false;
+        if (state.EligibleFrame == Time.frameCount && state.CachedCannon == cannon.Pointer) return state.CachedEligible;
+        state.EligibleFrame = Time.frameCount; state.CachedCannon = cannon.Pointer;
+        return state.CachedEligible = state.Rack.Capacity > 0 &&
+            state.Rack.ShellSizeBlueprintID == cannon.ShellSizeBlueprintID && CarouselRuntime.SameTurret(state.Rack, cannon) &&
+            Distance(state, cannon) < MaximumDistance;
+    }
     internal static double MaximumDistance => CannonBreech.MinimumOperateHandDistance;
     internal static bool HasDesign(Cannon cannon) => Racks(cannon).Any(s => Eligible(s, cannon));
     internal static UnityEngine.Vector3 FeedLocalPosition(AmmoRack rack)
@@ -75,6 +86,7 @@ internal static class BustleRuntime
     }
     internal static double Distance(BustleState state, Cannon cannon)
     {
+        if (state.DistanceFrame == Time.frameCount && state.PathCannonId == cannon.VUID.Value) return state.CachedDistance;
         if (state.Path == null || state.PathCannonId != cannon.VUID.Value)
         {
             state.Path = new VehicleComponentPath(state.Rack, cannon);
@@ -83,14 +95,21 @@ internal static class BustleRuntime
         state.Path.aLocalPosition = FeedLocalPosition(state.Rack);
         state.Path.bLocalPosition = cannon.LoadLocalPosition;
         state.Path.Update();
-        return state.Path.Distance;
+        state.DistanceFrame = Time.frameCount;
+        return state.CachedDistance = state.Path.Distance;
     }
-    internal static double Seconds(BustleState state, Cannon cannon) => BustleTiming.ReloadSeconds(
-        cannon.ShellBlueprint.Diameter, cannon.ShellBlueprint.Mass, CarouselGeometry.FullRoundLength(cannon.ShellBlueprint.Diameter,
-            cannon.ShellBlueprint.PropellantLength), Distance(state, cannon));
+    internal static double Seconds(BustleState state, Cannon cannon)
+    {
+        if (state.ReloadFrame == Time.frameCount) return state.CachedSeconds;
+        state.ReloadFrame = Time.frameCount;
+        var shell = cannon.ShellBlueprint;
+        return state.CachedSeconds = BustleTiming.ReloadSeconds(shell.Diameter, shell.Mass,
+            CarouselGeometry.FullRoundLength(shell.Diameter, shell.PropellantLength), 0);
+    }
 
     internal static void Assign(BustleState state, Cannon? cannon)
     {
+        VehicleLoadIndex.Invalidate();
         state.CannonId = cannon?.VUID.Value ?? -1;
         state.AutoAssign = false;
         state.Path = null;
@@ -202,9 +221,9 @@ internal static class BustleRuntime
     {
         state = null!;
         if (cannon == null || task.rack == null) return false;
-        foreach (var candidate in Racks(cannon))
+        foreach (var candidate in VehicleLoadIndex.Get(cannon).Bustles)
         {
-            if (!Eligible(candidate, cannon) || candidate.Rack.behaviour?.Pointer != task.rack.Pointer) continue;
+            if (candidate.Rack.behaviour?.Pointer != task.rack.Pointer || !Eligible(candidate, cannon)) continue;
             state = candidate;
             return true;
         }

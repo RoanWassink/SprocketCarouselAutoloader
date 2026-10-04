@@ -51,18 +51,32 @@ internal static class MagazineRefill
     }
     internal static IEnumerable<AmmoRack> Reserves(Cannon cannon)
     {
-        var objects = cannon.Vehicle.ObjectReader.Items;
-        for (int i = 0; i < Count(objects); i++)
+        foreach (var rack in VehicleLoadIndex.Get(cannon).Reserves)
+            if (rack.IsInstalled && rack.HealthFraction > 0 && rack.ShellSizeBlueprintID == cannon.ShellSizeBlueprintID && rack.behaviour?.AmountStored > 0)
+                yield return rack;
+    }
+
+    private static AmmoRack? RefillSource(BustleState state, Cannon cannon)
+    {
+        var source = state.RefillRack;
+        var magazine = state.Rack.behaviour;
+        if (magazine == null) return null;
+        if (state.RefillProgress > 0 && source != null && source.IsInstalled && source.HealthFraction > 0 &&
+            source.ShellSizeBlueprintID == cannon.ShellSizeBlueprintID && source.behaviour?.AmountStored > 0 &&
+            source.behaviour.StoredTypeID.Value == magazine.StoredTypeID.Value) return source;
+        source = null;
+        float nearest = float.PositiveInfinity;
+        var destination = state.Rack.transform.TransformPoint(state.Rack.LoadLocalPosition);
+        foreach (var rack in Reserves(cannon))
         {
-            var parts = objects[i].Components;
-            for (int j = 0; j < Count(parts); j++)
-            {
-                var rack = parts[j].TryCast<AmmoRack>();
-                if (rack != null && !BustleRuntime.IsPart(rack) && rack.IsInstalled && rack.HealthFraction > 0 &&
-                    rack.ShellSizeBlueprintID == cannon.ShellSizeBlueprintID && rack.behaviour?.AmountStored > 0)
-                    yield return rack;
-            }
+            if (rack.behaviour.StoredTypeID.Value != magazine.StoredTypeID.Value) continue;
+            float distance = (rack.transform.TransformPoint(rack.LoadLocalPosition) - destination).sqrMagnitude;
+            if (distance >= nearest) continue;
+            source = rack; nearest = distance;
         }
+        if (state.RefillRack?.Pointer != source?.Pointer) state.RefillPath = null;
+        state.RefillRack = source;
+        return source;
     }
 
     // Do not let the native lookup bypass an empty magazine and feed the chamber directly.
@@ -96,6 +110,8 @@ internal static class MagazineRefill
     [HarmonyPrefix, HarmonyPriority(Priority.First), HarmonyPatch(typeof(LoadTask), nameof(LoadTask.Update))]
     private static bool Tick(LoadTask __instance, float __3)
     {
+        var targetCannon = CannonFor(__instance);
+        if (targetCannon == null || VehicleLoadIndex.Get(targetCannon).Bustles.Length == 0) return true;
         CarouselRuntime.Guard("Crew magazine refill", () =>
         {
             var cannon = CannonFor(__instance);
@@ -103,10 +119,13 @@ internal static class MagazineRefill
             if (crewFrame != Time.frameCount) { crewFrame = Time.frameCount; BusyCrew.Clear(); }
             foreach (var state in BustleRuntime.Racks(cannon))
             {
-                if (!BustleRuntime.Eligible(state, cannon)) { state.RefillProgress = 0; state.Refilling = false; continue; }
+                if (state.CannonId != cannon.VUID.Value) continue;
                 var magazine = state.Rack.behaviour;
                 if (magazine == null || state.RefillFrame == Time.frameCount) continue;
                 state.RefillFrame = Time.frameCount;
+                if (magazine.AmountStored >= magazine.Capacity) { state.Refilling = false; state.RefillProgress = 0; continue; }
+                if (!state.Refilling && magazine.AmountStored > 0) continue;
+                if (!BustleRuntime.Eligible(state, cannon)) { state.RefillProgress = 0; state.Refilling = false; continue; }
                 if (magazine.AmountStored == 0) state.Refilling = true;
                 if (magazine.AmountStored >= magazine.Capacity) { state.Refilling = false; state.RefillProgress = 0; }
                 if (!state.Refilling) continue;
@@ -121,12 +140,11 @@ internal static class MagazineRefill
                 if (realTask == null || realTask.operateCount == 0 || realTask.efficiency <= 0)
                 { Status(state, "native crew loader not currently working"); continue; }
                 if (BusyCrew.Contains(seat.Pointer)) continue;
-                var source = Reserves(cannon).Where(r => r.behaviour.StoredTypeID.Value == magazine.StoredTypeID.Value)
-                    .OrderBy(r => Vector3.Distance(r.transform.TransformPoint(r.LoadLocalPosition), state.Rack.transform.TransformPoint(state.Rack.LoadLocalPosition))).FirstOrDefault();
+                var source = RefillSource(state, cannon);
                 if (source == null) { state.RefillProgress = 0; state.RefillSource = IntPtr.Zero; Status(state, "no matching reserve ammunition"); continue; }
                 if (state.RefillSource != source.Pointer) { state.RefillSource = source.Pointer; state.RefillProgress = 0; }
                 BusyCrew.Add(seat.Pointer);
-                var path = new VehicleComponentPath(source, state.Rack);
+                var path = state.RefillPath ??= new VehicleComponentPath(source, state.Rack);
                 path.aLocalPosition = source.LoadLocalPosition; path.bLocalPosition = state.Rack.LoadLocalPosition; path.Update();
                 var shot = source.LoadInfo;
                 var technique = LoaderRules.GetLoadTechnique(ref shot);
@@ -181,16 +199,6 @@ internal static class MagazineRefill
 
     private static CannonBreech? FindBreech(Cannon cannon)
     {
-        var objects = cannon.Vehicle.ObjectReader.Items;
-        for (int i = 0; i < Count(objects); i++)
-        {
-            var parts = objects[i].Components;
-            for (int j = 0; j < Count(parts); j++)
-            {
-                var breech = parts[j].TryCast<CannonBreech>();
-                if (breech?.parentCannonVuid.Value == cannon.VUID.Value) return breech;
-            }
-        }
-        return null;
+        return VehicleLoadIndex.Get(cannon).Breech;
     }
 }

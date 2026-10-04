@@ -8,7 +8,7 @@ using Sprocket.Vehicles.CrewSystems;
 
 namespace SprocketCarouselAutoloader;
 
-[BepInPlugin("nl.roan.sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.9")]
+[BepInPlugin("nl.roan.sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.10")]
 public sealed class Plugin : BasePlugin
 {
     internal static ManualLogSource ModLog = null!;
@@ -57,7 +57,7 @@ public sealed class Plugin : BasePlugin
         }
         catch (Exception ex) { Log.LogError($"Carousel disabled before patching: {ex}"); return; }
         var core = new Harmony("nl.roan.sprocket.carousel.core");
-        try { core.PatchAll(typeof(CarouselRuntime)); core.PatchAll(typeof(BustleRuntime)); core.PatchAll(typeof(BustleClearance)); core.PatchAll(typeof(MagazineRefill)); core.PatchAll(typeof(AutoloaderCycle)); }
+        try { core.PatchAll(typeof(VehicleLoadIndex)); VehicleLoadIndex.CheckHooks(core.Id); core.PatchAll(typeof(CarouselRuntime)); core.PatchAll(typeof(BustleRuntime)); core.PatchAll(typeof(BustleClearance)); core.PatchAll(typeof(MagazineRefill)); core.PatchAll(typeof(AutoloaderCycle)); }
         catch (Exception ex) { core.UnpatchSelf(); Log.LogError($"Carousel disabled: {ex}"); return; }
         var ui = new Harmony("nl.roan.sprocket.carousel.ui");
         try { ui.PatchAll(typeof(CarouselInspector)); ui.PatchAll(typeof(BustleInspector)); }
@@ -72,6 +72,6 @@ public sealed class Plugin : BasePlugin
         try { AutoloaderAudio.PreloadClips(); audio.PatchAll(typeof(AutoloaderAudio)); Log.LogInfo("[Autoloaders] Custom reload audio enabled for cycles of at least one second."); }
         catch (Exception ex) { audio.UnpatchSelf(); Log.LogWarning($"Autoloader audio disabled: {ex}"); }
         Log.LogInfo($"[Bustle] Maximum feed distance uses native crew hand reach: {BustleRuntime.MaximumDistance:0.00} m.");
-        Log.LogInfo("Autoloaders v0.2.9 experimental: carousel and bustle rack with optional custom icon/frame visuals.");
+        Log.LogInfo("Autoloaders v0.2.10 experimental: cached load connections and active-only rapid cycles.");
     }
 }

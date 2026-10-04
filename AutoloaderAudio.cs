@@ -77,10 +77,14 @@ internal static class AutoloaderAudio
         {
             var cannon = task.target?.TryCast<WeaponBehaviour>()?.mount?.TryCast<Cannon>();
             if (cannon == null) return;
-            var seconds = AutoloaderCycle.Seconds(task);
-            var active = task.State == LoadState.Loading && !MagazineRefill.Waiting(task) && seconds >= 1;
             Players.TryGetValue(cannon.Pointer, out var player);
-            if (!active)
+            if (task.State != LoadState.Loading || MagazineRefill.Waiting(task))
+            {
+                if (player != null) { player.Loading = false; if (player.Source != null) player.Source.Stop(); }
+                return;
+            }
+            var seconds = AutoloaderCycle.Seconds(task);
+            if (seconds < 1)
             {
                 if (player != null) { player.Loading = false; if (player.Source != null) player.Source.Stop(); }
                 return;

@@ -135,3 +135,20 @@ foreach (var invalidWave in new[] { Array.Empty<byte>(), new byte[12], File.Read
     Check(rejected, "Malformed/truncated WAV fails safely");
 }
 Console.WriteLine($"Custom WAV decoder PASS: {count} assertions. 120x1200 reference {BustleTiming.ReloadSeconds(120, 44.1, 1560, 1):0.000} s.");
+
+var frameGate = new OncePerFrame();
+int refreshes = 0;
+for (int frame = 100; frame < 103; frame++)
+    for (int controller = 0; controller < 100; controller++)
+        if (frameGate.Enter(frame)) refreshes++;
+Check(refreshes == 3, "100 vehicle controllers refresh global bindings only once per frame");
+Check(LoadWorkPolicy.Steps(false, false, .14, .016) == 1, "Idle compact autocannon receives one native update");
+Check(LoadWorkPolicy.Steps(true, true, .14, .016) == 1, "Empty magazine waiting for crew receives no rapid substeps");
+Check(LoadWorkPolicy.Steps(true, false, .14, .016) == 8, "Active rapid reload retains eight native substeps");
+Check(LoadWorkPolicy.Steps(true, false, 6, .016) == 1 && LoadWorkPolicy.Steps(true, false, .5, .016) == 1,
+    "Tank cycles and threshold do not substep");
+foreach (var invalid in new[] { 0d, -1d, double.NaN, double.PositiveInfinity })
+    Check(LoadWorkPolicy.Steps(true, false, .14, invalid) == 1, "Invalid delta cannot multiply native updates");
+var allocatedDelta = .016 / LoadWorkPolicy.Steps(true, false, .14, .016);
+Check(Math.Abs(allocatedDelta * 8 - .016) < 1e-12, "Rapid substeps conserve simulation time");
+Console.WriteLine($"Load work policy PASS: {count} assertions; 100 controllers x 3 frames => {refreshes} global refreshes.");

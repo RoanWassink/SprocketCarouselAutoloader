@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.10 — Performance update
+
+- Reduce repeated vehicle/component scans during autoloader updates, including checks on ordinary cannons.
+- Refresh automatic loader contributions once per frame instead of repeating global work for each vehicle controller.
+- Reuse bustle distance checks and reserve-ammunition paths; rebuild cached connections when parts rebuild or enable/disable.
+- Skip rapid autocannon substeps and mechanical audio lookups while idle or waiting for crew replenishment.
+- Keep reload timing, magazine capacity, crew requirements, sounds and vehicle save keys unchanged.
+
+Release build, 53,674 managed assertions and native startup checks pass. The creator tested this update in-game and confirmed the previously reported FPS drops no longer occur. No fixed numerical FPS gain is claimed.
+
 ## v0.2.9 — Carousel and bustle autoloaders
 
 - Add a separate placeable bustle ready magazine, custom icon, black frame and static feed arm.

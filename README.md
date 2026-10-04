@@ -2,7 +2,7 @@
 
 A vibe-coded BepInEx IL2CPP plugin that adds **carousel and bustle autoloaders** to Sprocket. Turn a turret basket into a T-72/90-style or T-64/80-style carousel, or place a compact bustle magazine behind a cannon.
 
-**Built with AI assistance.** Version **0.2.9** adds the bustle part, crew magazine replenishment, nonlinear reload timing and custom mechanical sounds. The creator has tested automatic firing, replenishment, sounds and vehicle saving/loading in-game.
+**Built with AI assistance.** Version **0.2.10** reduces repeated autoloader work during battles, especially with multiple vehicles and idle autocannons. Carousel and bustle setup, reload balance, sounds and save format are unchanged. The creator tested this update in-game and confirmed the previously reported FPS drops no longer occur in their test. Build, regression and native startup checks also pass.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ A vibe-coded BepInEx IL2CPP plugin that adds **carousel and bustle autoloaders**
 ## Installation
 
 1. Run the game once with the mod loader installed, then close it.
-2. Download **SprocketAutoloaders-v0.2.9.zip** from [Releases](https://github.com/RoanWassink/SprocketCarouselAutoloader/releases/latest).
+2. Download **SprocketAutoloaders-v0.2.10.zip** from [Releases](https://github.com/RoanWassink/SprocketCarouselAutoloader/releases/latest).
 3. Extract its `BepInEx` and `Sprocket_Data` folders into your Sprocket installation. The resulting paths must be:
 
    ```text
@@ -24,6 +24,12 @@ A vibe-coded BepInEx IL2CPP plugin that adds **carousel and bustle autoloaders**
 4. Launch the game. The carousel controls appear in the turret basket editor; **Bustle autoloader** appears in the ammunition/parts palette.
 
 Both files are required for the full release. The sounds are embedded in the DLL; no separate audio installation is needed. Replace the old DLL and install only one copy. Your original `ammoRackPart.json` stays as it is. No compiling needed. Back up your vehicle saves before experimenting and close the game before updates.
+
+### Updating or rolling back
+
+Close Sprocket, back up your current DLL and bustle part JSON, then merge the ZIP's two folders into the folder containing `Sprocket.exe`. Do not delete the existing game folders. From v0.2.9, replacing the DLL is sufficient because the bustle part is unchanged; the full ZIP is recommended for a fresh installation. Vehicle settings and save keys are unchanged, so existing tanks do not need conversion. Keep your saved vehicles and other mods.
+
+To roll back to v0.2.9, close the game and restore the previous DLL (and the original part JSON if you changed it). To uninstall, first disable carousel loading and replace bustle parts with ordinary racks in affected tanks, then save them. Remove only this mod's DLL and `roanBustleAutoloaderPart.json`. A vehicle containing a missing custom part may fail to load.
 
 ## Carousel setup
 
@@ -98,6 +104,24 @@ Old carousel saves from v0.1.8 remain supported. Earlier development saves may n
 
 The controls retain their **experimental** label. Compatibility with other game versions is untested.
 
+## Customization and FAQ
+
+### Do I need to edit a configuration file for the performance fix?
+
+No. The optimizations work automatically. This release has no supported user-editable configuration entries for reload timing, reach, capacity or audio. Use the in-game basket, cannon and rack controls; editing or creating a BepInEx config will not change those mechanics.
+
+### How can I make a larger magazine or fit a bigger shell?
+
+For a carousel, increase the smallest ring/segment diameter or total depth, guided by the required dimensions shown in its panel. Upright charges use basket depth. For a bustle, use the normal rack dimensions to change capacity, and keep its feed arm below the 1.00 m reach limit. Larger dimensions do not remove the reach requirement. Avoid editing the part GUID or duplicating its JSON: the plugin recognizes this specific part, so a renamed copy is not a supported new autoloader type.
+
+### Can I use custom shells or assign more than one cannon?
+
+Shell Selector profiles are selected on the cannon and followed by its assigned autoloader. See its [custom-shell guide](https://github.com/RoanWassink/SprocketShellSelector/blob/main/CUSTOM-SHELLS.md) for creating ammunition. This mod does not add shell definitions. Give each cannon its own selected automatic feed; one magazine does not automatically serve multiple cannons.
+
+### Will v0.2.10 improve my FPS?
+
+The creator confirmed the previously reported FPS drops are gone in their gameplay test. Results can vary with tank design and scenario; no fixed numerical FPS gain is claimed. If you still encounter a slowdown, compare the same tank, scenario, AI vehicle count and camera position before and after updating. Include idle, sustained firing and empty-bustle replenishment. Report both versions, FPS and vehicle count with any relevant log errors. See [PERFORMANCE.md](PERFORMANCE.md) for validation details.
+
 ## Troubleshooting
 
 **Bustle part missing:** install `roanBustleAutoloaderPart.json` in the path above and restart the game.
@@ -121,7 +145,7 @@ dotnet build CarouselAutoloader.csproj -c Release -p:GameDir="C:\Program Files (
 dotnet run --project tests/Carousel.Tests.csproj -c Release
 ```
 
-The DLL targets net6.0 x64. Game/loader assemblies are referenced locally and are not redistributed. The tests cover 53,664 geometry, timing and WAV assertions; startup checks native finite storage/transfer, loader integration, audio upload and blueprint serialization. These complement gameplay testing.
+The DLL targets net6.0 x64. Game/loader assemblies are referenced locally and are not redistributed. The tests cover 53,674 geometry, timing, WAV and performance-policy assertions; startup checks native finite storage/transfer, loader integration, audio upload, blueprint serialization and cache lifecycle hooks. These complement gameplay testing.
 
 `Install.ps1` installs the built DLL and bustle part with the game closed and backs up existing copies. It assumes the source checkout is `Sprocket\Mods\CarouselAutoloader`; otherwise install the two files manually.
 
