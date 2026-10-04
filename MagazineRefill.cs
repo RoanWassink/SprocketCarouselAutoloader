@@ -194,5 +194,3 @@ internal static class MagazineRefill
         return null;
     }
 }
-
-

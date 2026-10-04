@@ -37,4 +37,3 @@ internal static class BustleClearance
         return id == state.CannonId && assigned != null && CarouselRuntime.SameTurret(rack, assigned);
     }
 }
-

@@ -75,4 +75,3 @@ A missing part usually means the custom part JSON was not installed. No automati
 The arm is static. There are no conveyors, rammer/recoil animations, blast doors or blow-out panels. Native rack damage is retained. No physical route/alignment simulation is implemented. This crew-replenishment feature applies to the bustle ready magazine; an empty carousel currently falls back to ordinary manual loading.
 
 The creator confirmed firing, crew replenishment and sounds in-game through v0.2.9. Native startup and managed regression checks supplement those tests. The inspector remains marked experimental and other game versions are untested.
-
