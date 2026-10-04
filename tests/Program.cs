@@ -76,3 +76,62 @@ Check(Size(2716, 953, nativePropellant: 966, layout: CarouselLayout.VerticalChar
     Size(2716, 954, nativePropellant: 966, layout: CarouselLayout.VerticalCharge).Capacity > 0,
     "MZ vertical overflow boundary fits at required depth only");
 Console.WriteLine($"MZ refinement PASS: {count} assertions; body {longMz.StoredProjectileMm}, charge {longMz.StoredChargeMm}, depth {longMz.RequiredDepthMm}, capacity {longMz.Capacity}.");
+var baseReload = BustleTiming.ReloadSeconds(125, 45.8, 1341, 0);
+for (int metres = 0; metres <= 20; metres++)
+{
+    var reload = BustleTiming.ReloadSeconds(125, 45.8, 1341, metres);
+    Check(Math.Abs(reload - baseReload) < 1e-9, "Distance no longer changes firing cycle");
+    Check(BustleTiming.ReloadSeconds(125, 55.8, 1341, metres) > reload, "Heavier ammunition loads more slowly");
+    Check(BustleTiming.ReloadSeconds(125, 45.8, 1441, metres) > reload, "Longer ammunition loads more slowly");
+    Check(Math.Abs(reload * .2 + reload * .2 + reload * .4 + reload * .2 - reload) < 1e-9, "Mechanical phases match advertised reload time");
+}
+foreach (var invalid in new[] { -1d, double.NaN, double.PositiveInfinity })
+{
+    bool rejected = false;
+    try { BustleTiming.ReloadSeconds(125, 45.8, 1341, invalid); }
+    catch (ArgumentOutOfRangeException) { rejected = true; }
+    Check(rejected, "Reject invalid native path distances");
+}
+Check(BustleTiming.MechanismMassKg(22) == 230 && BustleTiming.MechanismMassKg(28) == 260, "Bustle mechanism scales with native capacity");
+Console.WriteLine($"Bustle timing PASS: {count} total assertions; 125 mm example at 1 m = {BustleTiming.ReloadSeconds(125, 45.8, 1341, 1):0.000} s.");
+
+var compact = BustleTiming.ReloadSeconds(25, .5, 212, .5);
+Check(compact > .12 && compact < .18, "Compact 25 mm feed targets over 330 rpm");
+Check(Math.Abs(BustleTiming.ReloadSeconds(120, 44.1, 1560, 1) - 6) < .01,
+    "120 mm / 1200 mm propellant targets six seconds");
+Check(BustleTiming.ReloadSeconds(25, .5, 424, .5) > compact, "Long small-calibre rounds have a penalty");
+Check(BustleTiming.ReloadSeconds(50, .5, 212, .5) > compact * 2, "Calibre growth is nonlinear");
+for (int c = 5; c <= 300; c++)
+{
+    var cycle = BustleTiming.ReloadSeconds(c, .5, c * 8, .5);
+    Check(double.IsFinite(cycle) && cycle >= .06, "Finite cycle retains mechanical floor");
+    Check(BustleTiming.ReloadSeconds(c + 1, .5, (c + 1) * 8, .5) > cycle, "Cycle increases smoothly with ammunition size");
+}
+Console.WriteLine($"Nonlinear timing PASS: {count} assertions; compact 25 mm = {compact:0.000} s / {60 / compact:0} theoretical rpm.");
+var thirty = BustleTiming.ReloadSeconds(30, .8, 240, .5);
+Check(thirty < .25 && thirty > .12, "Compact 30 mm cycle supports more than 240 theoretical rpm");
+Check(BustleTiming.ReloadSeconds(30, .8, 240, 0) == BustleTiming.ReloadSeconds(30, .8, 240, 50), "Reach and cycle are independent");
+Console.WriteLine($"30 mm compact target {thirty:0.000} s / {60 / thirty:0} rpm; {count} assertions.");
+var outlet = BustleFeedGeometry.Outlet(.41, 1.56, 120);
+Check(Math.Abs(outlet.X - .181) < 1e-9 && Math.Abs(outlet.Y - .048) < 1e-9 && Math.Abs(outlet.Z - 1.1136) < 1e-9,
+    "120 mm outlet lies at the front of the actual loading fork");
+Check(BustleFeedGeometry.Outlet(.41, 1.56, 30).Z < outlet.Z, "Small-calibre outlet follows smaller arm");
+Check(BustleFeedGeometry.Outlet(.41, 2.56, 120).Z == outlet.Z + .5, "Rack length moves outlet with front wall");
+Console.WriteLine($"Feed outlet geometry PASS: {count} assertions.");
+
+foreach (var audio in new[] { ("t90", 44100, 283768), ("t64", 44100, 356970), ("bustle", 48000, 240000) })
+{
+    using var file = File.OpenRead(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../Assets/Audio", audio.Item1 + ".wav")));
+    var decoded = PcmWave.Read(file);
+    Check(decoded.Frequency == audio.Item2 && decoded.Samples.Length == audio.Item3, "Provided WAV retains exact rate and duration");
+    Check(decoded.Samples.All(s => float.IsFinite(s) && s >= -1 && s <= 1), "Downmixed WAV is valid normalized PCM");
+    Check(decoded.Samples.Any(s => Math.Abs(s) > .01f), "Decoded WAV contains audible samples");
+}
+foreach (var invalidWave in new[] { Array.Empty<byte>(), new byte[12], File.ReadAllBytes(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../Assets/Audio/t90.wav"))).Take(200).ToArray() })
+{
+    var rejected = false;
+    try { PcmWave.Read(new MemoryStream(invalidWave)); }
+    catch (Exception ex) when (ex is IOException or InvalidDataException) { rejected = true; }
+    Check(rejected, "Malformed/truncated WAV fails safely");
+}
+Console.WriteLine($"Custom WAV decoder PASS: {count} assertions. 120x1200 reference {BustleTiming.ReloadSeconds(120, 44.1, 1560, 1):0.000} s.");

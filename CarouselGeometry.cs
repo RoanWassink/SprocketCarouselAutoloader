@@ -98,7 +98,7 @@ public static class CarouselGeometry
             if (capacity < 3) { capacity = 0; reason = "Fewer than three cassette positions fit"; }
         }
         var mass = 120 + diameter / 1000 * 40 + capacity * 5;
-        var reload = 4.5 + shellMassKg * .045 + lengthMm * .001 + diameter / 1000 * .35;
+        var reload = BustleTiming.ReloadSeconds(caliberMm, shellMassKg, lengthMm, diameter / 1000 * .35);
         return new(capacity, maxLength, diameter, depth, mass, reload, reason, requiredDepth,
             Math.Max(0, maxNativePropellant), RequiredDiameter(caliberMm, storedLength, layout), projectileLength, chargeLength);
     }

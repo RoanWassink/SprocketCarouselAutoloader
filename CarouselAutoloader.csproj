@@ -1,16 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <PlatformTarget>x64</PlatformTarget><Version>0.1.8</Version><AssemblyName>SprocketCarouselAutoloader</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget><Version>0.2.9</Version><AssemblyName>SprocketCarouselAutoloader</AssemblyName>
     <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Sprocket</GameDir>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Assets\Audio\t90.wav" LogicalName="Autoloaders.Audio.t90.wav" />
+    <EmbeddedResource Include="Assets\Audio\t64.wav" LogicalName="Autoloaders.Audio.t64.wav" />
+    <EmbeddedResource Include="Assets\Audio\bustle.wav" LogicalName="Autoloaders.Audio.bustle.wav" />
     <Compile Remove="tests\**\*.cs" />
     <Reference Include="$(GameDir)\BepInEx\core\*.dll" Exclude="$(GameDir)\BepInEx\core\TerraFX*.dll;$(GameDir)\BepInEx\core\dobby.dll"><Private>false</Private></Reference>
     <Reference Include="$(GameDir)\BepInEx\interop\*.dll"><Private>false</Private></Reference>
   </ItemGroup>
 </Project>
-
-
-
-

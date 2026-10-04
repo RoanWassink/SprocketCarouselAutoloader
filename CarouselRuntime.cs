@@ -71,12 +71,12 @@ internal static class CarouselRuntime
         }
         return null;
     }
-    internal static bool SameTurret(TurretBasket basket, Cannon cannon)
+    internal static bool SameTurret(VehicleComponent basket, Cannon cannon)
     {
         var a = Turret(basket); var b = Turret(cannon);
         return a != null && b != null && a.Pointer == b.Pointer;
     }
-    internal static List<Cannon> Cannons(TurretBasket basket)
+    internal static List<Cannon> Cannons(VehicleComponent basket)
     {
         var result = new List<Cannon>();
         var objects = basket.Vehicle.ObjectReader.Items;
@@ -179,7 +179,7 @@ internal static class CarouselRuntime
         Plugin.ModLog.LogInfo($"[Carousel] Basket {state.Basket.VUID.Value}, cannon {cannon.VUID.Value}: {size.Capacity} rounds, {size.MaxLengthMm:0} mm limit, {size.ReloadSeconds:0.0} s reload");
         return state.Rack;
     }
-    private static bool Mechanical(LoadTask task, out BasketState state)
+    internal static bool Mechanical(LoadTask task, out BasketState state)
     {
         state = null!;
         return task.rack != null && Racks.TryGetValue(task.rack.Pointer, out state!) && state.Enabled &&
@@ -198,6 +198,7 @@ internal static class CarouselRuntime
             {
                 var cannon = parts[j].TryCast<Cannon>();
                 if (cannon == null || cannon.VUID.Value != breech.parentCannonVuid.Value || !cannon.IsInstalled) continue;
+                if (BustleRuntime.HasDesign(cannon)) return true;
                 foreach (var basket in Baskets(cannon))
                 {
                     var state = State(basket);
@@ -236,6 +237,7 @@ internal static class CarouselRuntime
     {
         Guard("Attach native automatic loader", () =>
         {
+            MagazineRefill.UpdateCrewPoint(__instance);
             var weapon = __instance.Behaviour;
             var task = weapon?.LoadTask?.TryCast<LoadTask>();
             if (weapon == null || task == null) return;
@@ -243,7 +245,7 @@ internal static class CarouselRuntime
             {
                 var s = State(b);
                 return s.Enabled && s.CannonId == __instance.VUID.Value && b.HealthFraction > 0 && Calculate(b, __instance).Capacity > 0;
-            })) return;
+            }) && !BustleRuntime.HasDesign(__instance)) return;
             SelectSupply(task);
             var exists = AutoLoaders.TryGetValue(__instance.Pointer, out var binding) && binding.Task.Pointer == task.Pointer;
             var contributor = exists ? binding!.Contributor : new LoadContributeTask { efficiency = 1f, commandEfficiency = 1f, operateCount = 1 };
@@ -298,6 +300,7 @@ internal static class CarouselRuntime
     }
     private static bool AutomaticSourceActive(LoadTask task, Cannon? cannon)
     {
+        if (BustleRuntime.Active(task, cannon)) return true;
         if (Mechanical(task, out var state))
             return task.State == LoadState.Loading || task.State == LoadState.Loaded || state.Rack?.AmountStored > 0;
         // Physics activation can invalidate the supply cache after the initial chamber load.
@@ -353,6 +356,7 @@ internal static class CarouselRuntime
                 (__instance.State == LoadState.Loaded && __instance.currentRequest == LoadRequest.Unused)) return;
             var cannon = __instance.target?.TryCast<WeaponBehaviour>()?.mount?.TryCast<Cannon>();
             if (cannon == null) return;
+            if (BustleRuntime.SelectSupply(__instance, cannon)) return;
             var request = __instance.Request;
             request.Amount = 1;
             foreach (var basket in Baskets(cannon))
@@ -384,7 +388,8 @@ internal static class CarouselRuntime
             // Native Update skips UpdateRequest when no request exists. Bootstrap the first one without ordinary racks.
             if (__instance.State == LoadState.NeverLoaded && __instance.Request.TypeID.Value == ProjectileTypeID.Invalid.Value)
                 SelectSupply(__instance);
-            if (!Mechanical(__instance, out var state)) return;
+            if (!Mechanical(__instance, out var state))
+            { BustleRuntime.ApplySpeed(__instance, ref __0, ref __1, ref __2); return; }
             __0 = 1; __1 = 1; __2 = (float)state.Size.ReloadSeconds * .2f;
         }
         catch (Exception ex) { Plugin.ModLog.LogError($"[Carousel] Loading speeds: {ex}"); }
@@ -394,7 +399,8 @@ internal static class CarouselRuntime
     {
         Guard("Loading phases", () =>
         {
-            if (!Mechanical(__instance, out var state) || __instance.State != LoadState.Loading) return;
+            if (!Mechanical(__instance, out var state)) { BustleRuntime.ApplyTimings(__instance); return; }
+            if (__instance.State != LoadState.Loading) return;
             var seconds = (float)state.Size.ReloadSeconds;
             __instance.pickupTime = seconds * .2f;
             __instance.totalDistance = seconds * .2f;

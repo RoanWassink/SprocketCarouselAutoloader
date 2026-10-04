@@ -49,10 +49,12 @@ internal static class CarouselPersistence
                     captured.AddValue(entries.Name, entries.Value, entries.ObjectType);
             blueprint.VehicleObjects[0].State = captured;
             Write(blueprint.VehicleObjects[0].State, enabled, cannonId, layout);
+            BustleRuntime.WriteSettings(blueprint.VehicleObjects[0].State, enabled, cannonId);
             var json = serializer.SerializeToJSON(blueprint, true);
             var restored = serializer.DeserializeJSON(json);
             var info = restored.VehicleObjects[0].State;
-            if (Read(info) != new Settings(enabled, cannonId, layout) || info.GetInt32("vanillaSentinel") != 2671 ||
+            if (Read(info) != new Settings(enabled, cannonId, layout) || BustleRuntime.ReadSettings(info) != (enabled, cannonId, true) ||
+                info.GetInt32("vanillaSentinel") != 2671 ||
                 info.GetInt32("turretBasket") != 304)
                 throw new InvalidOperationException("Native blueprint JSON round-trip lost carousel or vanilla data.");
         }

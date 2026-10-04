@@ -1,6 +1,6 @@
 # Storage and balance
 
-These formulas describe the v0.1.8 gameplay model. They do not predict real projectile or propellant dimensions. They affect storage and loading, without replacing the cannon's native ammunition or ballistics.
+These formulas describe the v0.2.9 gameplay model. They do not predict real projectile or propellant dimensions. They affect storage and loading, without replacing the cannon's native ammunition or ballistics.
 
 All lengths below are in millimetres unless otherwise stated. `c` is the cannon's full calibre, `p` its native propellant-length setting, and `L = 3c + p` the native combined round length.
 
@@ -59,9 +59,7 @@ These examples assume sufficient basket depth. Larger designs may carry more tha
 
 ```text
 Mechanism mass (kg) = 120 + 40 × diameter in metres + 5 × capacity
-Reload time (s)     = 4.5 + 0.045 × native shot mass in kg
-                     + 0.001 × native combined round length in mm
-                     + 0.35 × diameter in metres
+Reload time uses the nonlinear calibre/length curve documented in BUSTLE.md.
 ```
 
 The design includes the mechanism and full native ammunition mass. Design mass remains constant during firing. Reload time represents an abstract mechanical cycle, without separate rotation/lift/ram animations.

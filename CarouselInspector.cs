@@ -68,12 +68,17 @@ internal static class CarouselInspector
                     state.CannonId = index == 0 ? -1 : cannons[index - 1].VUID.Value;
                     // Prevent two baskets feeding the same cannon.
                     if (index > 0)
+                    {
+                        foreach (var bustle in BustleRuntime.Racks(cannons[index - 1]))
+                            if (bustle.CannonId == state.CannonId)
+                            { bustle.CannonId = -1; bustle.AutoAssign = false; bustle.Rack.RequestRebuild(); }
                         foreach (var other in CarouselRuntime.Baskets(cannons[index - 1]))
                         {
                             var otherState = CarouselRuntime.State(other);
                             if (other.Pointer != basket.Pointer && otherState.CannonId == state.CannonId)
                             { otherState.CannonId = -1; CarouselRuntime.Invalidate(otherState); other.RequestRebuild(); }
                         }
+                    }
                     Changed();
                 }), "Only installed cannons in this turret are listed. Each carousel serves one cannon.");
                 ui.InfoField("Ammunition follows assigned cannon; choose its profile on the cannon", 2);
@@ -102,7 +107,7 @@ internal static class CarouselInspector
                 var tooltip = new UITooltip { Header = "Refresh carousel", Body = "Read the assigned cannon's current ammunition dimensions again." };
                 ui.Button("Refresh ammunition information", DelegateSupport.ConvertDelegate<UnityAction>((Action)(() =>
                 { basket.RequestRebuild(); __instance.RequestRedraw(); }))!, ref tooltip);
-                ui.InfoField($"Mechanical reload: {size.ReloadSeconds:0.0} s | no loader required for carousel rounds", 2);
+                ui.InfoField($"Mechanical reload: {size.ReloadSeconds:0.00} s | no loader required for carousel rounds", 2);
                 ui.InfoField($"Added full mass: {size.MechanismMassKg + size.Capacity * cannon.ShellBlueprint.Mass:0} kg", 2);
                 if (size.Reason.Length > 0) ui.InfoField(size.Reason, 2);
                 if (state.Rack != null)
