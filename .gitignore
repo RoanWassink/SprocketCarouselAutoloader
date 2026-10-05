@@ -1,14 +1,7 @@
 bin/
 obj/
-**/bin/
-**/obj/
 backups/
-research/
-releases/
-VALIDATION.md
-*.log
-*.pid
+work/
+outputs/
 *.dll
 *.pdb
-*.blueprint
-.github/workflows/geometry.yml

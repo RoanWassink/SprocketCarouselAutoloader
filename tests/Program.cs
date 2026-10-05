@@ -119,7 +119,7 @@ Check(BustleFeedGeometry.Outlet(.41, 1.56, 30).Z < outlet.Z, "Small-calibre outl
 Check(BustleFeedGeometry.Outlet(.41, 2.56, 120).Z == outlet.Z + .5, "Rack length moves outlet with front wall");
 Console.WriteLine($"Feed outlet geometry PASS: {count} assertions.");
 
-foreach (var audio in new[] { ("t90", 44100, 283768), ("t64", 44100, 356970), ("bustle", 48000, 240000) })
+foreach (var audio in new[] { ("t90", 44100, 283768), ("t64", 44100, 356970), ("bustle", 48000, 301824) })
 {
     using var file = File.OpenRead(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../Assets/Audio", audio.Item1 + ".wav")));
     var decoded = PcmWave.Read(file);

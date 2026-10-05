@@ -8,7 +8,7 @@ using Sprocket.Vehicles.CrewSystems;
 
 namespace SprocketCarouselAutoloader;
 
-[BepInPlugin("nl.roan.sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.10")]
+[BepInPlugin("nl.roan.sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.11")]
 public sealed class Plugin : BasePlugin
 {
     internal static ManualLogSource ModLog = null!;
@@ -72,6 +72,6 @@ public sealed class Plugin : BasePlugin
         try { AutoloaderAudio.PreloadClips(); audio.PatchAll(typeof(AutoloaderAudio)); Log.LogInfo("[Autoloaders] Custom reload audio enabled for cycles of at least one second."); }
         catch (Exception ex) { audio.UnpatchSelf(); Log.LogWarning($"Autoloader audio disabled: {ex}"); }
         Log.LogInfo($"[Bustle] Maximum feed distance uses native crew hand reach: {BustleRuntime.MaximumDistance:0.00} m.");
-        Log.LogInfo("Autoloaders v0.2.10 experimental: cached load connections and active-only rapid cycles.");
+        Log.LogInfo("Autoloaders v0.2.11 experimental: cached load connections and active-only rapid cycles.");
     }
 }
