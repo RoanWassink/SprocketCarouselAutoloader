@@ -5,8 +5,8 @@ namespace SprocketCarouselAutoloader;
 
 internal static class CarouselPersistence
 {
-    private const string EnabledKey = "roanCarouselEnabledV1", CannonKey = "roanCarouselCannonV1";
-    private const string LayoutKey = "roanCarouselLayoutV2";
+    private const string EnabledKey = "sprocketCarouselEnabledV1", CannonKey = "sprocketCarouselCannonV1";
+    private const string LayoutKey = "sprocketCarouselLayoutV2";
     internal readonly record struct Settings(bool Enabled, int CannonId, CarouselLayout Layout);
 
     internal static void Write(SerializationInfo info, bool enabled, int cannonId, CarouselLayout layout)
@@ -21,9 +21,12 @@ internal static class CarouselPersistence
         var entries = info.GetEnumerator();
         var keys = new HashSet<string>();
         while (entries.MoveNext()) keys.Add(entries.Name);
-        return new(keys.Contains(EnabledKey) && info.GetBoolean(EnabledKey),
-            keys.Contains(CannonKey) ? info.GetInt32(CannonKey) : -1,
-            keys.Contains(LayoutKey) ? (CarouselLayout)Math.Clamp(info.GetInt32(LayoutKey), 0, 1) : CarouselLayout.HorizontalCassette);
+        var enabledKey = SettingsMigration.Resolve(keys, EnabledKey);
+        var cannonKey = SettingsMigration.Resolve(keys, CannonKey);
+        var layoutKey = SettingsMigration.Resolve(keys, LayoutKey);
+        return new(enabledKey != null && info.GetBoolean(enabledKey!),
+            cannonKey != null ? info.GetInt32(cannonKey) : -1,
+            layoutKey != null ? (CarouselLayout)Math.Clamp(info.GetInt32(layoutKey), 0, 1) : CarouselLayout.HorizontalCassette);
     }
 
     internal static void CheckNativeJsonRoundTrip()
@@ -34,6 +37,18 @@ internal static class CarouselPersistence
         var old = serializer.DeserializeJSON(fixture);
         if (Read(old.VehicleObjects[0].State) != new Settings(false, -1, CarouselLayout.HorizontalCassette))
             throw new InvalidOperationException("Legacy blueprint defaults failed.");
+        var legacyState = serializer.DeserializeJSON(fixture).VehicleObjects[0].State;
+        legacyState.AddValue("roanCarouselEnabledV1", true);
+        legacyState.AddValue("roanCarouselCannonV1", 370);
+        legacyState.AddValue("roanCarouselLayoutV2", 1);
+        legacyState.AddValue("roanBustleEnabledV1", false);
+        legacyState.AddValue("roanBustleCannonV1", 275);
+        if (Read(legacyState) != new Settings(true, 370, CarouselLayout.VerticalCharge) ||
+            BustleRuntime.ReadSettings(legacyState) != (false, 275, true))
+            throw new InvalidOperationException("Legacy autoloader settings migration failed.");
+        legacyState.AddValue(EnabledKey, false);
+        if (Read(legacyState).Enabled)
+            throw new InvalidOperationException("Canonical setting precedence failed.");
         foreach (var layout in new[] { CarouselLayout.HorizontalCassette, CarouselLayout.VerticalCharge })
         foreach (var enabled in new[] { false, true })
         foreach (var cannonId in new[] { -1, 275, 370 })
@@ -49,11 +64,12 @@ internal static class CarouselPersistence
                     captured.AddValue(entries.Name, entries.Value, entries.ObjectType);
             blueprint.VehicleObjects[0].State = captured;
             Write(blueprint.VehicleObjects[0].State, enabled, cannonId, layout);
-            BustleRuntime.WriteSettings(blueprint.VehicleObjects[0].State, enabled, cannonId);
+            BustleRuntime.WriteSettings(blueprint.VehicleObjects[0].State, enabled, cannonId, enabled);
             var json = serializer.SerializeToJSON(blueprint, true);
             var restored = serializer.DeserializeJSON(json);
             var info = restored.VehicleObjects[0].State;
             if (Read(info) != new Settings(enabled, cannonId, layout) || BustleRuntime.ReadSettings(info) != (enabled, cannonId, true) ||
+                BustleRuntime.ReadMirrorSetting(info) != enabled ||
                 info.GetInt32("vanillaSentinel") != 2671 ||
                 info.GetInt32("turretBasket") != 304)
                 throw new InvalidOperationException("Native blueprint JSON round-trip lost carousel or vanilla data.");

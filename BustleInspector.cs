@@ -27,6 +27,12 @@ internal static class BustleInspector
                 void Changed() { rack.RequestRebuild(); __instance.RequestRedraw(); }
                 ui.ToggleField("Automatic loader", state.Enabled, Bool(v => { state.Enabled = v; Changed(); }),
                     "Uses a finite ready magazine. An assigned crew loader replenishes it from normal racks after it empties.");
+                ui.ToggleField("Mirror feed arm", state.MirrorFeedArm, Bool(v =>
+                {
+                    state.MirrorFeedArm = v;
+                    BustleRuntime.InvalidateRuntimeCaches();
+                    Changed();
+                }), "Move the loading arm to the opposite side. The visible fork and feed reach move together; saved per autoloader.");
                 var cannons = CarouselRuntime.Cannons(rack);
                 var selected = cannons.FindIndex(c => c.VUID.Value == state.CannonId);
                 var labels = new Il2CppSystem.Collections.Generic.List<string>();

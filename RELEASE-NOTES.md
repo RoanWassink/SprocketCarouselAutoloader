@@ -1,20 +1,14 @@
-<!-- sp-compat {"hamish.sprocket": "0.2.55.5", "bepinex.bepinex": "6.0.0-be.788"} -->
+# Sprocket Carousel Autoloader v0.2.12 — beta
 
-Carousel and bustle autoloaders with finite ammunition, automatic loading and distinct mechanical sounds.
+- **Mirror feed arm:** move the bustle rammer and fork to the opposite side. Feed distance follows the selected fork, and each part remembers its setting when saving and loading.
+- **Compatible settings migration:** existing vehicle saves remain readable. New saves use neutral settings identifiers; the part GUID remains unchanged. An old configuration is copied only when the new configuration is absent.
 
-## What changes for you
+Automatic loading, finite ammunition, crew replenishment, reload balance and the Howden/Russian recordings are unchanged.
 
-The bustle autoloader now uses the updated Howden recording. Automatic loading, finite magazines, saving/loading and the previous performance fixes are retained.
+**Update:** replace the existing DLL. Copy `sprocketBustleAutoloaderPart.json`, then remove the older `roanBustleAutoloaderPart.json` from the same Parts folder. Keep backups of your vehicles and settings, and keep only one DLL version. Older plugin versions cannot read the newly named save settings; use pre-update vehicle backups when rolling back.
 
-**Beta:** tested together in the Cold War pack. Armour-response values are bounded gameplay approximations, not exact historical protection or a guarantee against every shell.
-
-## Requirements and update
-
-Sprocket 0.2.55.5, Windows x64 and an already-working Sprocket Mod Loader / BepInEx 6 IL2CPP setup. **Loader not included. Quality of Life not required.**
-
-Close the game, back up matching files and saves, then merge the ZIP's folders into the game directory. Keep one DLL per plugin and preserve customized configs/catalogues/WAV overrides. See [README](https://github.com/RoanWassink/SprocketCarouselAutoloader#readme) for exact use, controls, limitations and uninstall instructions.
+Requires Sprocket 0.2.55.5 and a working Sprocket Mod Loader / BepInEx 6 IL2CPP setup. The loader is separate; Quality of Life is optional. See README for installation and usage.
 
 [Support my ChatGPT budget and help me reverse engineer Sprocket to make more mods](https://www.paypal.com/donate/?hosted_button_id=7PE3SDBETXFQ6).
 
-[Separate loader installation](https://github.com/Hans21223/Sprocket-Mod-Loader).
-
+<!-- sp-compat {"hamish.sprocket": "0.2.55.5", "bepinex.bepinex": "6.0.0-be.788"} -->

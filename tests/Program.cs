@@ -152,3 +152,65 @@ foreach (var invalid in new[] { 0d, -1d, double.NaN, double.PositiveInfinity })
 var allocatedDelta = .016 / LoadWorkPolicy.Steps(true, false, .14, .016);
 Check(Math.Abs(allocatedDelta * 8 - .016) < 1e-12, "Rapid substeps conserve simulation time");
 Console.WriteLine($"Load work policy PASS: {count} assertions; 100 controllers x 3 frames => {refreshes} global refreshes.");
+
+// Both arm choices must retain fork height/forward reach and agree under rotation.
+foreach (var width in new[]{.025,.5,1d,2d}) foreach (var length in new[]{.025,.5,2d}) foreach (var calibre in new[]{15d,75d,125d,250d})
+{
+    var a = BustleFeedGeometry.Outlet(width,length,calibre);
+    var b = BustleFeedGeometry.Outlet(width,length,calibre,true);
+    Check(Math.Abs(a.X+b.X)<1e-12 && a.Y==b.Y && a.Z==b.Z,"Arm mirror changes only lateral position");
+    foreach (var yaw in new[]{0d,30d,90d,180d})
+    {
+        var r=yaw*Math.PI/180;
+        var centre=new System.Numerics.Vector3(.2f,.3f,-.4f);
+        var rotation=System.Numerics.Quaternion.CreateFromAxisAngle(System.Numerics.Vector3.UnitY,(float)r);
+        var wa=System.Numerics.Vector3.Transform(new((float)a.X,(float)a.Y,(float)a.Z),rotation)+centre;
+        var wb=System.Numerics.Vector3.Transform(new((float)b.X,(float)b.Y,(float)b.Z),rotation)+centre;
+        Check(Math.Abs(System.Numerics.Vector3.Distance(wa,wb)-2*Math.Abs(a.X))<1e-5,"Mirrored reach remains consistent after turret rotation/centre offset");
+    }
+}
+Console.WriteLine($"FR008 mirror geometry PASS: {count} assertions. Native UI/save-load/automatic feed remains pending.");
+
+// Compatibility must preserve deliberate false values and selected cannon/layout.
+foreach (var prefix in new[]{"roan", "sprocket"})
+foreach (var enabled in new[]{false,true})
+foreach (var cannon in new[]{-1,275,370})
+foreach (var layout in new[]{0,1})
+{
+    var legacy = new Dictionary<string,object> {
+        [prefix+"CarouselEnabledV1"]=enabled, [prefix+"CarouselCannonV1"]=cannon,
+        [prefix+"CarouselLayoutV2"]=layout, [prefix+"BustleEnabledV1"]=enabled,
+        [prefix+"BustleCannonV1"]=cannon, ["sprocketBustleMirrorFeedArmV1"]=true,
+        ["vanillaSentinel"]=2671 };
+    var json=System.Text.Json.JsonSerializer.Serialize(legacy);
+    var decoded=System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,System.Text.Json.JsonElement>>(json)!;
+    var keys=new HashSet<string>(decoded.Keys);
+    var migrated=new Dictionary<string,System.Text.Json.JsonElement>();
+    foreach(var name in new[]{"CarouselEnabledV1","CarouselCannonV1","CarouselLayoutV2","BustleEnabledV1","BustleCannonV1"})
+    {
+        var key=SettingsMigration.Resolve(keys,"sprocket"+name);
+        Check(key==prefix+name,"Legacy/canonical save key resolved");
+        migrated["sprocket"+name]=decoded[key!];
+    }
+    migrated["sprocketBustleMirrorFeedArmV1"]=decoded["sprocketBustleMirrorFeedArmV1"];
+    migrated["vanillaSentinel"]=decoded["vanillaSentinel"];
+    var restored=System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,System.Text.Json.JsonElement>>(System.Text.Json.JsonSerializer.Serialize(migrated))!;
+    Check(restored["sprocketCarouselEnabledV1"].GetBoolean()==enabled && restored["sprocketBustleEnabledV1"].GetBoolean()==enabled,"Explicit disabled setting retained");
+    Check(restored["sprocketCarouselCannonV1"].GetInt32()==cannon && restored["sprocketCarouselLayoutV2"].GetInt32()==layout,"Assigned cannon and layout retained");
+    Check(restored["sprocketBustleMirrorFeedArmV1"].GetBoolean() && restored["vanillaSentinel"].GetInt32()==2671,"Mirror and vanilla state retained");
+    Check(restored.Keys.All(k=>!k.StartsWith("roan")),"Canonical save has no legacy duplicate ledger");
+}
+Check(SettingsMigration.Resolve(new HashSet<string>{"roanBustleEnabledV1","sprocketBustleEnabledV1"},"sprocketBustleEnabledV1")=="sprocketBustleEnabledV1","Canonical wins mixed saves");
+Check(SettingsMigration.Resolve(new HashSet<string>(),"sprocketCarouselEnabledV1")==null,"Missing settings retain vanilla defaults");
+var configFixture=Path.Combine(Path.GetTempPath(),"carousel-migration-"+Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(configFixture);
+try {
+    File.WriteAllText(Path.Combine(configFixture,"nl.roan.sprocket.carousel.cfg"),"# custom settings\nVolume = 0.42\n");
+    SettingsMigration.CopyLegacyConfig(configFixture);
+    Check(File.ReadAllBytes(Path.Combine(configFixture,"sprocket.carousel.cfg")).SequenceEqual(File.ReadAllBytes(Path.Combine(configFixture,"nl.roan.sprocket.carousel.cfg"))),"Config migration byte exact");
+    File.WriteAllText(Path.Combine(configFixture,"sprocket.carousel.cfg"),"Keep canonical");
+    SettingsMigration.CopyLegacyConfig(configFixture);
+    Check(File.ReadAllText(Path.Combine(configFixture,"sprocket.carousel.cfg"))=="Keep canonical","Existing canonical settings never replaced");
+    Check(File.ReadAllText(Path.Combine(configFixture,"nl.roan.sprocket.carousel.cfg")).Contains("0.42"),"Legacy rollback settings untouched");
+} finally { foreach(var file in Directory.GetFiles(configFixture)) File.Delete(file); Directory.Delete(configFixture); }
+Console.WriteLine($"Compatibility migration PASS: {count} total assertions.");

@@ -73,6 +73,7 @@ internal static class BustleVisuals
             var steel = Tint(nativeModel.material, new Color(.22f, .25f, .28f, 1));
             Models[__instance.Pointer] = new(root, black, steel);
             var d = __instance.boundsSize;
+            var sideSign = BustleRuntime.State(__instance).MirrorFeedArm ? -1f : 1f;
             var scale = (float)BustleFeedGeometry.Scale(__instance.projectileSizeID.Caliber);
             float x = Mathf.Max(.025f, d.x), y = Mathf.Max(.025f, d.y), z = Mathf.Max(.025f, d.z), t = .035f * scale;
             Box(root.transform, black, "Base tray", new(0, -y / 2, 0), new(x + t * 2, t, z + t * 2));
@@ -81,9 +82,9 @@ internal static class BustleVisuals
                 Box(root.transform, black, "Side rail", new(side * x / 2, 0, 0), new(t, y, z + t));
                 Box(root.transform, black, "Top rail", new(0, y / 2, side * z / 2), new(x + t, t, t));
             }
-            Box(root.transform, black, "Rammer support", new(x / 2 + .055f * scale, 0, 0), new(.07f * scale, y + .12f * scale, .09f * scale));
-            Box(root.transform, steel, "Feed arm", new(x / 2 + .055f * scale, .05f * scale, z / 2 + .17f * scale), new(.045f * scale, .045f * scale, .34f * scale));
-            var outlet = BustleFeedGeometry.Outlet(d.x, d.z, __instance.projectileSizeID.Caliber);
+            Box(root.transform, black, "Rammer support", new(sideSign * (x / 2 + .055f * scale), 0, 0), new(.07f * scale, y + .12f * scale, .09f * scale));
+            Box(root.transform, steel, "Feed arm", new(sideSign * (x / 2 + .055f * scale), .05f * scale, z / 2 + .17f * scale), new(.045f * scale, .045f * scale, .34f * scale));
+            var outlet = BustleFeedGeometry.Outlet(d.x, d.z, __instance.projectileSizeID.Caliber, BustleRuntime.State(__instance).MirrorFeedArm);
             Box(root.transform, black, "Loading fork", new((float)outlet.X, (float)outlet.Y, (float)outlet.Z - .0175f * scale), new(.20f * scale, .07f * scale, .035f * scale));
             root.SetActive(nativeModel.Visible);
         });

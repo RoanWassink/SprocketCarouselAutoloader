@@ -8,13 +8,15 @@ using Sprocket.Vehicles.CrewSystems;
 
 namespace SprocketCarouselAutoloader;
 
-[BepInPlugin("nl.roan.sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.11")]
+[BepInPlugin("sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.12")]
 public sealed class Plugin : BasePlugin
 {
     internal static ManualLogSource ModLog = null!;
     public override void Load()
     {
         ModLog = Log;
+        try { SettingsMigration.CopyLegacyConfig(BepInEx.Paths.ConfigPath); }
+        catch (Exception ex) { Log.LogWarning($"Legacy configuration could not be copied; original preserved: {ex.Message}"); }
         try
         {
             // Isolated native storage check; no vehicle or projectile is spawned.
@@ -56,22 +58,22 @@ public sealed class Plugin : BasePlugin
             Log.LogInfo("[Carousel] Native blueprint JSON check passed: 12 carousel/bustle settings round-trips, vanilla data and legacy defaults preserved.");
         }
         catch (Exception ex) { Log.LogError($"Carousel disabled before patching: {ex}"); return; }
-        var core = new Harmony("nl.roan.sprocket.carousel.core");
+        var core = new Harmony("sprocket.carousel.core");
         try { core.PatchAll(typeof(VehicleLoadIndex)); VehicleLoadIndex.CheckHooks(core.Id); core.PatchAll(typeof(CarouselRuntime)); core.PatchAll(typeof(BustleRuntime)); core.PatchAll(typeof(BustleClearance)); core.PatchAll(typeof(MagazineRefill)); core.PatchAll(typeof(AutoloaderCycle)); }
         catch (Exception ex) { core.UnpatchSelf(); Log.LogError($"Carousel disabled: {ex}"); return; }
-        var ui = new Harmony("nl.roan.sprocket.carousel.ui");
+        var ui = new Harmony("sprocket.carousel.ui");
         try { ui.PatchAll(typeof(CarouselInspector)); ui.PatchAll(typeof(BustleInspector)); }
         catch (Exception ex) { ui.UnpatchSelf(); Log.LogError($"Basket inspector disabled: {ex}"); }
-        var visuals = new Harmony("nl.roan.sprocket.carousel.visuals");
+        var visuals = new Harmony("sprocket.carousel.visuals");
         try { visuals.PatchAll(typeof(BustleVisuals)); BustleVisuals.Icon(); Log.LogInfo("[Bustle] Custom icon and optional frame/rammer visual hooks ready."); }
         catch (Exception ex) { visuals.UnpatchSelf(); Log.LogError($"Bustle visuals disabled: {ex}"); }
-        var compatibility = new Harmony("nl.roan.sprocket.carousel.compatibility");
+        var compatibility = new Harmony("sprocket.carousel.compatibility");
         try { compatibility.PatchAll(typeof(TurretAudioGuard)); }
         catch (Exception ex) { compatibility.UnpatchSelf(); Log.LogWarning($"Turret audio guard disabled: {ex}"); }
-        var audio = new Harmony("nl.roan.sprocket.carousel.audio");
+        var audio = new Harmony("sprocket.carousel.audio");
         try { AutoloaderAudio.PreloadClips(); audio.PatchAll(typeof(AutoloaderAudio)); Log.LogInfo("[Autoloaders] Custom reload audio enabled for cycles of at least one second."); }
         catch (Exception ex) { audio.UnpatchSelf(); Log.LogWarning($"Autoloader audio disabled: {ex}"); }
         Log.LogInfo($"[Bustle] Maximum feed distance uses native crew hand reach: {BustleRuntime.MaximumDistance:0.00} m.");
-        Log.LogInfo("Autoloaders v0.2.11 experimental: cached load connections and active-only rapid cycles.");
+        Log.LogInfo("Autoloaders v0.2.12 experimental: cached load connections and active-only rapid cycles.");
     }
 }

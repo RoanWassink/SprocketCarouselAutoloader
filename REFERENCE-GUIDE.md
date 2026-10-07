@@ -13,7 +13,7 @@ A vibe-coded BepInEx IL2CPP plugin that adds **carousel and bustle autoloaders**
 ## Installation
 
 1. Run the game once with the mod loader installed, then close it.
-2. Download **SprocketCarouselAutoloader-v0.2.11.zip** from [Releases](https://github.com/RoanWassink/SprocketCarouselAutoloader/releases/latest).
+2. Download **SprocketCarouselAutoloader-v0.2.12.zip** from [Releases](https://github.com/RoanWassink/SprocketCarouselAutoloader/releases/latest).
 3. Extract its `BepInEx` and `Sprocket_Data` folders into your Sprocket installation. The resulting paths must be:
 
    ```text
@@ -127,7 +127,7 @@ The DLL targets net6.0 x64. Game/loader assemblies are referenced locally and ar
 
 ## Credits
 
-Created by RoanWassink with AI assistance, including the custom reload sounds. Uses Sprocket's native ammunition storage/loading through BepInEx 6 IL2CPP and Harmony. The mod-loader environment is also used by Hans21223's *Sprocket Quality of Life*.
+Created by Nero with AI assistance, including the custom reload sounds. Uses Sprocket's native ammunition storage/loading through BepInEx 6 IL2CPP and Harmony. The mod-loader environment is also used by Hans21223's *Sprocket Quality of Life*.
 
 Released under the [MIT License](LICENSE).
 

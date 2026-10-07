@@ -14,6 +14,7 @@ internal sealed class BustleState
 {
     internal readonly AmmoRack Rack;
     internal bool Enabled = true;
+    internal bool MirrorFeedArm;
     internal int CannonId = -1;
     internal VehicleComponentPath? Path;
     internal int PathCannonId = -1;
@@ -37,7 +38,8 @@ internal sealed class BustleState
 internal static class BustleRuntime
 {
     internal const string PartGuid = "a4214ee4-45cf-42ab-80f7-5e6c389513a3";
-    private const string EnabledKey = "roanBustleEnabledV1", CannonKey = "roanBustleCannonV1";
+    private const string EnabledKey = "sprocketBustleEnabledV1", CannonKey = "sprocketBustleCannonV1";
+    private const string MirrorKey = "sprocketBustleMirrorFeedArmV1";
     private static readonly Dictionary<IntPtr, BustleState> States = new();
     [HarmonyPostfix, HarmonyPatch(typeof(Sprocket.Vehicles.PartImporting.PartDefinitionIO),
         nameof(Sprocket.Vehicles.PartImporting.PartDefinitionIO.DeserializePartDefinitionJSON))]
@@ -80,7 +82,7 @@ internal static class BustleRuntime
     internal static bool HasDesign(Cannon cannon) => Racks(cannon).Any(s => Eligible(s, cannon));
     internal static UnityEngine.Vector3 FeedLocalPosition(AmmoRack rack)
     {
-        var outlet = BustleFeedGeometry.Outlet(rack.boundsSize.x, rack.boundsSize.z, rack.projectileSizeID.Caliber);
+        var outlet = BustleFeedGeometry.Outlet(rack.boundsSize.x, rack.boundsSize.z, rack.projectileSizeID.Caliber, State(rack).MirrorFeedArm);
         return (rack.boundsCollider?.Centre ?? UnityEngine.Vector3.zero) +
             new UnityEngine.Vector3((float)outlet.X, (float)outlet.Y, (float)outlet.Z);
     }
@@ -263,7 +265,7 @@ internal static class BustleRuntime
                 var rack = parts[i].TryCast<AmmoRack>();
                 if (rack == null || !IsPart(rack)) continue;
                 var state = State(rack);
-                WriteSettings(__result.State, state.Enabled, state.CannonId);
+                WriteSettings(__result.State, state.Enabled, state.CannonId, state.MirrorFeedArm);
             }
         });
     }
@@ -279,17 +281,27 @@ internal static class BustleRuntime
             state.Enabled = saved.Enabled;
             state.CannonId = saved.CannonId;
             state.AutoAssign = !saved.HasAssignment;
+            state.MirrorFeedArm = ReadMirrorSetting(__0);
             state.Path = null;
         });
     }
-    internal static void WriteSettings(SerializationInfo info, bool enabled, int cannonId)
-    { info.AddValue(EnabledKey, enabled); info.AddValue(CannonKey, cannonId); }
+    internal static void WriteSettings(SerializationInfo info, bool enabled, int cannonId, bool mirrorFeedArm = false)
+    { info.AddValue(EnabledKey, enabled); info.AddValue(CannonKey, cannonId); info.AddValue(MirrorKey, mirrorFeedArm); }
+    internal static bool ReadMirrorSetting(SerializationInfo info)
+    {
+        var entries = info.GetEnumerator();
+        while (entries.MoveNext())
+            if (entries.Name == MirrorKey) return info.GetBoolean(MirrorKey);
+        return false;
+    }
     internal static (bool Enabled, int CannonId, bool HasAssignment) ReadSettings(SerializationInfo info)
     {
         var keys = new HashSet<string>(); var entries = info.GetEnumerator();
         while (entries.MoveNext()) keys.Add(entries.Name);
-        return (!keys.Contains(EnabledKey) || info.GetBoolean(EnabledKey),
-            keys.Contains(CannonKey) ? info.GetInt32(CannonKey) : -1, keys.Contains(CannonKey));
+        var enabledKey = SettingsMigration.Resolve(keys, EnabledKey);
+        var cannonKey = SettingsMigration.Resolve(keys, CannonKey);
+        return (enabledKey == null || info.GetBoolean(enabledKey),
+            cannonKey != null ? info.GetInt32(cannonKey) : -1, cannonKey != null);
     }
     [HarmonyPrefix, HarmonyPatch(typeof(VehicleComponent), nameof(VehicleComponent.ReleaseInternal))]
     private static void Release(VehicleComponent __instance) => States.Remove(__instance.Pointer);
