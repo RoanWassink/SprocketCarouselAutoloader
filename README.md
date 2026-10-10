@@ -5,7 +5,6 @@
 - **Static Russian-style carousel model:** the basket contains visible ammunition that follows the native magazine stock.
 - **Crew-required assisted loader:** a placeable ready magazine and mechanical loading aid for large ammunition. Assistance scales smoothly with the full cartridge's native mass and length. Smaller, lighter rounds can be faster by hand.
 - **Distinct assisted-loader icon:** an autoloader icon plus a crew silhouette identifies the crew-operated option.
-- **Accurate assisted countdown:** displayed time and progress account for the real handling speed throughout the cycle.
 
 ### Set up an assisted loader
 
