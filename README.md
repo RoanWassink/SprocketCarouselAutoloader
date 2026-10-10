@@ -1,5 +1,7 @@
 # Sprocket CarouselAutoloader
 
+<!-- sp-compat {"hamish.sprocket": ">=0.2.55.5", "bepinex.bepinex": "6.0.0-be.788"} -->
+
 ## New in 0.2.14
 
 - **Static Russian-style carousel model:** the basket contains visible ammunition that follows the native magazine stock.
