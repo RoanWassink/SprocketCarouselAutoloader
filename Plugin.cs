@@ -8,7 +8,7 @@ using Sprocket.Vehicles.CrewSystems;
 
 namespace SprocketCarouselAutoloader;
 
-[BepInPlugin("sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.12")]
+[BepInPlugin("sprocket.carousel", "Sprocket Carousel Autoloader", "0.2.14")]
 public sealed class Plugin : BasePlugin
 {
     internal static ManualLogSource ModLog = null!;
@@ -59,14 +59,23 @@ public sealed class Plugin : BasePlugin
         }
         catch (Exception ex) { Log.LogError($"Carousel disabled before patching: {ex}"); return; }
         var core = new Harmony("sprocket.carousel.core");
-        try { core.PatchAll(typeof(VehicleLoadIndex)); VehicleLoadIndex.CheckHooks(core.Id); core.PatchAll(typeof(CarouselRuntime)); core.PatchAll(typeof(BustleRuntime)); core.PatchAll(typeof(BustleClearance)); core.PatchAll(typeof(MagazineRefill)); core.PatchAll(typeof(AutoloaderCycle)); }
+        try { core.PatchAll(typeof(VehicleLoadIndex)); VehicleLoadIndex.CheckHooks(core.Id); core.PatchAll(typeof(CarouselRuntime)); core.PatchAll(typeof(BustleRuntime)); core.PatchAll(typeof(BustleClearance)); core.PatchAll(typeof(MagazineRefill)); core.PatchAll(typeof(AutoloaderCycle)); core.PatchAll(typeof(NativeCycleDiagnostics)); }
         catch (Exception ex) { core.UnpatchSelf(); Log.LogError($"Carousel disabled: {ex}"); return; }
+        var semi = new Harmony("sprocket.carousel.semi-assist");
+        try { semi.PatchAll(typeof(SemiAutoloader)); SemiAutoloader.Available = true; }
+        catch (Exception ex) { semi.UnpatchSelf(); SemiAutoloader.Available = false; Log.LogWarning($"Semi-autoloader assistance disabled; existing automatic loaders retained: {ex.Message}"); }
+        var display=new Harmony("sprocket.carousel.assisted-display");
+        try { display.PatchAll(typeof(SemiCountdown)); }
+        catch(Exception ex) { display.UnpatchSelf(); Log.LogWarning($"Assisted countdown correction unavailable; gameplay retained: {ex.Message}"); }
         var ui = new Harmony("sprocket.carousel.ui");
         try { ui.PatchAll(typeof(CarouselInspector)); ui.PatchAll(typeof(BustleInspector)); }
         catch (Exception ex) { ui.UnpatchSelf(); Log.LogError($"Basket inspector disabled: {ex}"); }
         var visuals = new Harmony("sprocket.carousel.visuals");
         try { visuals.PatchAll(typeof(BustleVisuals)); BustleVisuals.Icon(); Log.LogInfo("[Bustle] Custom icon and optional frame/rammer visual hooks ready."); }
         catch (Exception ex) { visuals.UnpatchSelf(); Log.LogError($"Bustle visuals disabled: {ex}"); }
+        var carouselVisuals = new Harmony("sprocket.carousel.carousel-visuals");
+        try { carouselVisuals.PatchAll(typeof(CarouselVisuals)); }
+        catch (Exception ex) { carouselVisuals.UnpatchSelf(); Log.LogWarning($"Carousel visuals disabled: {ex.Message}"); }
         var compatibility = new Harmony("sprocket.carousel.compatibility");
         try { compatibility.PatchAll(typeof(TurretAudioGuard)); }
         catch (Exception ex) { compatibility.UnpatchSelf(); Log.LogWarning($"Turret audio guard disabled: {ex}"); }
@@ -74,6 +83,7 @@ public sealed class Plugin : BasePlugin
         try { AutoloaderAudio.PreloadClips(); audio.PatchAll(typeof(AutoloaderAudio)); Log.LogInfo("[Autoloaders] Custom reload audio enabled for cycles of at least one second."); }
         catch (Exception ex) { audio.UnpatchSelf(); Log.LogWarning($"Autoloader audio disabled: {ex}"); }
         Log.LogInfo($"[Bustle] Maximum feed distance uses native crew hand reach: {BustleRuntime.MaximumDistance:0.00} m.");
-        Log.LogInfo("Autoloaders v0.2.12 experimental: cached load connections and active-only rapid cycles.");
+        Log.LogInfo("Autoloaders v0.2.14 experimental: static carousel visuals and crew-required assisted autoloader.");
     }
 }
+

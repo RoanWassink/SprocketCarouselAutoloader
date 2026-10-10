@@ -1,8 +1,22 @@
 # Sprocket CarouselAutoloader
 
+## New in 0.2.14
+
+- **Static Russian-style carousel model:** the basket contains visible ammunition that follows the native magazine stock.
+- **Crew-required assisted loader:** a placeable ready magazine and mechanical loading aid for large ammunition. Assistance scales smoothly with the full cartridge's native mass and length. Smaller, lighter rounds can be faster by hand.
+- **Distinct assisted-loader icon:** an autoloader icon plus a crew silhouette identifies the crew-operated option.
+- **Accurate assisted countdown:** displayed time and progress account for the real handling speed throughout the cycle.
+
+### Set up an assisted loader
+
+Place the assisted-loader part, assign its ammunition reference to the intended cannon, and give that cannon a healthy working crew loader. Keep its feed endpoint within the native loading reach, on the same turret. Set the native rack size and fill: stock remains finite. The mechanical handoff, distance, crew efficiency and preparation all contribute to loading time; it has no guaranteed reload time per calibre. Replenishment uses compatible ordinary reserve ammunition and real crew work.
+
+The carousel appearance is static; rotating or moving-shell animations are not included. Assisted loading does not remove the need for crew or create ammunition.
+
+
 Carousel and bustle autoloaders with finite ammunition, automatic loading and distinct mechanical sounds.
 
-**v0.2.12 — beta.** Mirror the bustle feed arm to fit either side of your turret. Existing vehicle settings are read automatically; newly saved settings use neutral identifiers. Automatic loading, finite magazines, sounds and reload balance are retained.
+**v0.2.14 — beta.** Mirror the bustle feed arm to fit either side of your turret. Existing vehicle settings are read automatically; newly saved settings use neutral identifiers. Automatic loading, finite magazines, sounds and reload balance are retained.
 
 ## Requirements
 
@@ -13,7 +27,7 @@ Carousel and bustle autoloaders with finite ammunition, automatic loading and di
 ## Install and update
 
 1. Install a working Sprocket Mod Loader / BepInEx 6 IL2CPP setup, run Sprocket once, then close it. The loader is a separate prerequisite and is not included.
-2. Download **SprocketCarouselAutoloader-v0.2.12.zip** from [this release](https://github.com/RoanWassink/SprocketCarouselAutoloader/releases/tag/v0.2.12).
+2. Download **SprocketCarouselAutoloader-v0.2.14.zip** from [this release](https://github.com/RoanWassink/SprocketCarouselAutoloader/releases/tag/v0.2.14).
 3. In Steam, use Sprocket > Manage > Browse local files. Copy the ZIP's folders into the folder containing Sprocket.exe. Merge folders; keep the internal structure intact.
 4. Keep one copy of each plugin. Back up matching mod files and vehicle saves before updating. Never replace the whole BepInEx folder.
 5. Preserve existing BepInEx/config files, customized files. Install required dependencies separately. Restart the game.

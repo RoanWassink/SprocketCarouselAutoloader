@@ -214,3 +214,129 @@ try {
     Check(File.ReadAllText(Path.Combine(configFixture,"nl.roan.sprocket.carousel.cfg")).Contains("0.42"),"Legacy rollback settings untouched");
 } finally { foreach(var file in Directory.GetFiles(configFixture)) File.Delete(file); Directory.Delete(configFixture); }
 Console.WriteLine($"Compatibility migration PASS: {count} total assertions.");
+
+var visualAccepted=0;
+foreach(var calibre in new[]{15d,25d,30d,50d,75d,100d,120d,125d,152d,250d})
+foreach(var propellant in new[]{0d,30d,408d,700d,1200d,2000d})
+foreach(var diameter in new[]{800d,1500d,2000d,2500d,2716d,4000d,6000d})
+foreach(var depth in new[]{250d,453d,800d,1200d,2500d})
+foreach(var layout in new[]{CarouselLayout.HorizontalCassette,CarouselLayout.VerticalCharge})
+{
+    var size=CarouselGeometry.Calculate(new[]{new Segment(diameter,depth)},calibre,calibre*3+propellant,40,layout);
+    if(size.Capacity==0) continue;
+    visualAccepted++;
+    try {
+        var meshes=CarouselVisualGeometry.Build(diameter/1000,depth/1000,size.Capacity,calibre/1000,
+            Math.Max(.001,size.StoredProjectileMm/1000),Math.Max(0,size.StoredChargeMm/1000),layout==CarouselLayout.VerticalCharge);
+        Check(meshes.Count<=5,"Visual draw groups stay bounded");
+        foreach(var mesh in meshes) {
+            Check(mesh.Triangles.All(i=>i>=0&&i<mesh.Vertices.Count),"Mesh indices valid");
+            Check(mesh.Vertices.Count<65536,"Mesh stays in 16-bit index budget");
+            if(mesh.SlotPrefixIndexCounts is { Length: > 0 } prefixes) {
+                Check(prefixes.Length==size.Capacity+1&&prefixes[0]==0&&prefixes[^1]==mesh.Triangles.Count,"Ammo prefix covers native stock");
+                Check(prefixes.Zip(prefixes.Skip(1),(a,b)=>a<=b&&b%3==0).All(x=>x),"Stock indices monotonic and triangle aligned");
+            }
+        }
+    } catch(Exception ex){throw new Exception($"Visual rejected native-valid caliber={calibre},propellant={propellant},diameter={diameter},depth={depth},layout={layout},capacity={size.Capacity}",ex);}
+}
+Console.WriteLine($"Visual allocation compatibility PASS: {visualAccepted} native-valid designs; {count} total assertions.");
+
+foreach(var native in new[]{0f,.1f,.4f,1f,2f,10f})
+{
+    Check(SemiAssistPolicy.Rate(native,1)==native,"No valid human contributor gets no assistance");
+    Check(Math.Abs(SemiAssistPolicy.Rate(native,1.5)-native*1.5f)<.0001f,"Rate applies its supplied multiplier exactly once");
+}
+Check(SemiAssistPolicy.Rate(float.MaxValue,4)==float.MaxValue,"Boost cannot overflow native rate");
+var normalWork=5d+6d; var preparation=1d;
+Check(Math.Abs(normalWork/1.5+preparation-8.333333333333)<1e-8,"Native preparation remains unboosted; no fake fixed cycle");
+foreach(var calibre in new[]{15d,125d,250d,500d,1000d})
+{
+    var a=SemiAssistPolicy.Outlet(2,3,calibre,false);var b=SemiAssistPolicy.Outlet(2,3,calibre,true);
+    Check(a.X==-b.X && a.Y==b.Y && a.Z==b.Z,"Semi mirror changes only lateral feed position");
+    Check(Math.Abs(a.Z-(1.5+.3475*SemiAssistPolicy.ArmScale(calibre)))<1e-12,"Visible large-shell arm and feed endpoint agree");
+}
+Check(SemiAssistPolicy.ArmScale(500)==4 && BustleFeedGeometry.Scale(500)==2,"Semi supports larger shell arm; accepted full-auto geometry unchanged");
+var semiJson=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"..","..","..","..","Parts","sprocketSemiAutoloaderPart.json")));
+var fullJson=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"..","..","..","..","Parts","sprocketBustleAutoloaderPart.json")));
+Check(semiJson.RootElement.GetProperty("guid").GetString()!=fullJson.RootElement.GetProperty("guid").GetString(),"New semi part cannot overwrite existing bustle saves");
+Check(semiJson.RootElement.GetProperty("components")[0].GetProperty("type").GetString()=="ammoRack","Semi keeps native ammo rack dimensions/capacity");
+Console.WriteLine($"Large-shell semi geometry and distinct part contract PASS: {count} total assertions.");
+var zeroSize=CarouselGeometry.Calculate(new[]{new Segment(2500,800)},125,375,40);
+var zeroMeshes=CarouselVisualGeometry.Build(2.5,.8,zeroSize.Capacity,.125,.375,0,false);
+Check(zeroMeshes.Where(m=>m.Material=="Charge").All(m=>m.Triangles.Count==0),"Zero native propellant never creates decorative ammunition");
+// Approved mass/length workload curve, independently pinned reference and adversarial inputs.
+foreach(var example in new[]{(8d,.6,.00133328,.95173326,.90413316),(12d,.8,.01000944,.96301227,.93102927),(21d,.95,.10763656,1.08992753,1.23367334),(28d,1.1,.31883302,1.36448293,1.88838236),(36d,1.2,.59095959,1.71824747,2.73197473),(60d,1.665,.94633020,2.18022927,3.83362363)})
+{
+    var b=SemiAssistPolicy.Curve(example.Item1,example.Item2);
+    Check(b.Valid && Math.Abs(b.Weight-example.Item3)<1e-8,"Approved reference workload weight");
+    Check(Math.Abs(b.Travel-example.Item4)<1e-8 && Math.Abs(b.Handling-example.Item5)<1e-8,"Approved independent rate references");
+}
+var referenceBalance=SemiAssistPolicy.Native(30,5,1);
+Check(referenceBalance.Valid && referenceBalance.MassKg==35 && referenceBalance.LengthM==1,"Uses complete native component mass and metre length");
+Check(Math.Abs(referenceBalance.Weight-.5)<1e-14 && Math.Abs(referenceBalance.Travel-1.6)<1e-14 && Math.Abs(referenceBalance.Handling-2.45)<1e-14,"Reference transition precisely pinned");
+foreach(var mass in new[]{double.Epsilon,1e-200,.1,8,35,90,1e200,double.MaxValue})
+foreach(var length in new[]{double.Epsilon,1e-200,.1,1,4,1e200,double.MaxValue})
+{
+    var b=SemiAssistPolicy.Curve(mass,length);
+    Check(b.Valid && double.IsFinite(b.Weight) && b.Weight>=0 && b.Weight<=1,"Extreme finite workload cannot overflow curve");
+    Check(b.Travel>=.95 && b.Travel<=2.25 && b.Handling>=.90 && b.Handling<=4,"Assistance always bounded");
+    Check(SemiAssistPolicy.Curve(mass,length* .5).Weight<=b.Weight,"Longer workload monotonically receives more assistance");
+}
+foreach(var invalid in new[]{0d,-1,double.NaN,double.PositiveInfinity,double.NegativeInfinity})
+{
+    var b=SemiAssistPolicy.Curve(invalid,1);var c=SemiAssistPolicy.Curve(35,invalid);
+    Check(!b.Valid && !c.Valid && b.Travel==1 && c.Handling==1 && b.OverheadWork==0,"Invalid inputs preserve native work/rates");
+}
+Check(!SemiAssistPolicy.Native(-10,45,1).Valid && !SemiAssistPolicy.Native(35,-2,1).Valid,"Negative component mass cannot hide inside positive sum");
+Check(SemiAssistPolicy.Native(float.MaxValue,float.MaxValue,1).Valid,"Native float component sum evaluated without float overflow");
+foreach(var crewRate in new[]{.1f,1f,2f})
+{
+    var basePickup=2f; var extended=SemiAssistPolicy.PickupWithOverhead(basePickup,referenceBalance);
+    var boosted=SemiAssistPolicy.Rate(crewRate,referenceBalance.Handling);
+    Check(Math.Abs((extended-basePickup)/boosted-.75/crewRate)<1e-6,"One overhead costs 0.75 native handling-seconds scaled by actual crew");
+}
+Check(SemiAssistPolicy.Rate(0,referenceBalance.Handling)==0 && SemiAssistPolicy.Rate(-1,referenceBalance.Handling)==-1,"Stopped native crew cannot advance overhead");
+var invalidBalance=SemiAssistPolicy.Curve(0,1);
+Check(SemiAssistPolicy.PickupWithOverhead(3,invalidBalance)==3,"Invalid profile adds no overhead");
+Check(float.IsFinite(SemiAssistPolicy.PickupWithOverhead(float.MaxValue,referenceBalance)),"Finite native work stays finite");
+Check(SemiAssistPolicy.Rate(float.MaxValue,4)==float.MaxValue,"Rate overflow retains native finite value");
+Console.WriteLine($"Approved assisted balance PASS: {count} total assertions; native gameplay pending.");
+// Native feature.3 VRRC fixture: correct dropoff work by its cached effective rate.
+var countdown=new SemiCountdownMath.Work(0,0,9.628,0,2.708,0,6.660,0,.264*2.232,3.957);
+Check(SemiCountdownMath.TryTimes(countdown,out var remain,out var duration),"Valid effective native rates produce display times");
+var expected=9.628/3.957+2.708/(.264*2.232)+6.660/3.957;
+Check(Math.Abs(remain-expected)<1e-12 && remain==duration,"Independent full phase seconds sum");
+var legacyCountdown=9.628/3.957+2.708/(.264*2.232)+6.660;
+Check(Math.Abs(legacyCountdown-remain-6.660*(1-1/3.957))<1e-12,"Reproduces native unscaled ramwork display error exactly");
+var ramOnly=countdown with { Picked=9.628,Travelled=2.708 };
+SemiCountdownMath.TryTimes(ramOnly,out var beforeRam,out _);
+Check(Math.Abs(beforeRam-6.66/3.957)<1e-12,"6.66 work is about 1.68 seconds, not 6.66 seconds");
+foreach(var t in new[]{.1,.5,1.0})
+{
+    SemiCountdownMath.TryTimes(ramOnly with { Dropped=t*3.957 },out var afterRam,out _);
+    Check(Math.Abs(beforeRam-afterRam-t)<1e-12,"Displayed final phase decreases one second per real second");
+}
+foreach(var rates in new[]{(.1,.2),(1d,1d),(2.232*.264,3.957),(4d,8d)})
+{
+    var start=countdown with { Prepare=1,TravelRate=rates.Item1,HandlingRate=rates.Item2 };
+    SemiCountdownMath.TryTimes(start,out var full,out var whole);
+    var checkpoints=new[]{ start with {Prepared=.5}, start with{Prepared=1,Picked=.3*rates.Item2},start with{Prepared=1,Picked=9.628,Travelled=.2*rates.Item1},start with{Prepared=1,Picked=9.628,Travelled=2.708,Dropped=.4*rates.Item2} };
+    var elapsed=new[]{.5,1+.3,1+9.628/rates.Item2+.2,1+9.628/rates.Item2+2.708/rates.Item1+.4};
+    for(int i=0;i<checkpoints.Length;i++)
+    {
+        SemiCountdownMath.TryTimes(checkpoints[i],out var left,out var all);
+        Check(Math.Abs(full-left-elapsed[i])<1e-9 && all==whole,"All native phases share the same elapsed time basis");
+        Check(Math.Abs(SemiCountdownMath.Fraction(left,all)-elapsed[i]/all)<1e-12,"Load progress uses corrected remaining numerator and same total");
+    }
+}
+var complete=countdown with{Prepared=10,Picked=10,Travelled=3,Dropped=7};
+Check(SemiCountdownMath.TryTimes(complete,out var done,out var completedTotal) && done==0 && SemiCountdownMath.Fraction(done,completedTotal)==1,"Native phase overshoot cannot make negative countdown or >100 percent progress");
+foreach(var invalid in new[]{0d,-1,double.NaN,double.PositiveInfinity})
+{
+    Check(!SemiCountdownMath.TryTimes(countdown with{HandlingRate=invalid},out _,out _),"Preserve native stopped/invalid rate sentinel");
+    Check(!SemiCountdownMath.TryTimes(countdown with{TravelRate=invalid},out _,out _),"No misleading finite countdown with stopped travel");
+}
+Check(!SemiCountdownMath.TryTimes(countdown with{Dropoff=double.NaN},out _,out _),"Invalid work preserves native display");
+Check(!SemiCountdownMath.TryTimes(countdown with{Pickup=double.MaxValue,HandlingRate=.01},out _,out _),"Overflow does not enter display floats");
+Console.WriteLine($"Scoped native countdown correction PASS: {count} total assertions; fixture estimate {remain:0.000}s vs legacy {legacyCountdown:0.000}s, constant rates only.");
+

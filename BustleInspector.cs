@@ -21,11 +21,11 @@ internal static class BustleInspector
             var ui = __0.TryCast<IGUIElementDrawer>();
             if (ui == null) return;
             __0.EndAllDropdowns();
-            __0.BeginDropdown("Bustle autoloader (experimental)", open, Bool(v => open = v));
+            __0.BeginDropdown(state.Semi ? "Semi-autoloader (experimental)" : "Bustle autoloader (experimental)", open, Bool(v => open = v));
             try
             {
                 void Changed() { rack.RequestRebuild(); __instance.RequestRedraw(); }
-                ui.ToggleField("Automatic loader", state.Enabled, Bool(v => { state.Enabled = v; Changed(); }),
+                ui.ToggleField(state.Semi ? "Mechanical assistance" : "Automatic loader", state.Enabled, Bool(v => { state.Enabled = v; Changed(); }),
                     "Uses a finite ready magazine. An assigned crew loader replenishes it from normal racks after it empties.");
                 ui.ToggleField("Mirror feed arm", state.MirrorFeedArm, Bool(v =>
                 {
@@ -51,9 +51,18 @@ internal static class BustleInspector
                 var distance = BustleRuntime.Distance(state, assigned);
                 ui.InfoField($"Feed arm to breech: {distance:0.00} / {BustleRuntime.MaximumDistance:0.00} m", 2);
                 if (distance >= BustleRuntime.MaximumDistance) ui.InfoField("Outside native crew-loader reach: move the autoloader closer", 2);
-                ui.InfoField($"Mechanical reload: {BustleRuntime.Seconds(state, assigned):0.00} s | " +
-                    (BustleRuntime.Eligible(state, assigned) ? "ready magazine needs no crew loader" : "automatic feed unavailable"), 2);
-                ui.InfoField($"Theoretical feed rate: {60 / BustleRuntime.Seconds(state, assigned):0} shots/min", 2);
+                if (state.Semi)
+                {
+                    ui.InfoField(SemiAutoloader.Available ? "Mechanical assistance: scales with ammunition mass and length" : "Mechanical assistance unavailable; native rack loading only", 2);
+                    ui.InfoField(SemiAutoloader.HasCrew(assigned) ? "Assigned healthy crew loader available" : "Requires an assigned healthy crew loader within native reach", 2);
+                    ui.InfoField("Reload includes a crew-operated mechanical handoff. Light rounds may load faster manually; heavy rounds receive more assistance.", 2);
+                }
+                else
+                {
+                    ui.InfoField($"Mechanical reload: {BustleRuntime.Seconds(state, assigned):0.00} s | " +
+                        (BustleRuntime.Eligible(state, assigned) ? "ready magazine needs no crew loader" : "automatic feed unavailable"), 2);
+                    ui.InfoField($"Theoretical feed rate: {60 / BustleRuntime.Seconds(state, assigned):0} shots/min", 2);
+                }
                 ui.InfoField($"Mechanism mass: {BustleTiming.MechanismMassKg(rack.Capacity):0} kg", 2);
                 ui.InfoField("Crew refills from normal racks after this magazine empties. Each completed shot is ready immediately.", 2);
                 if (state.Refilling) ui.InfoField($"Refill pending: next shot {state.RefillProgress:P0} | needs assigned loader and matching reserve", 2);

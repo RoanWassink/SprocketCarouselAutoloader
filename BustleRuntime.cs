@@ -14,6 +14,7 @@ internal sealed class BustleState
 {
     internal readonly AmmoRack Rack;
     internal bool Enabled = true;
+    internal readonly bool Semi;
     internal bool MirrorFeedArm;
     internal int CannonId = -1;
     internal VehicleComponentPath? Path;
@@ -32,7 +33,8 @@ internal sealed class BustleState
     internal IntPtr CachedCannon;
     internal bool CachedEligible;
     internal double CachedDistance, CachedSeconds;
-    internal BustleState(AmmoRack rack) => Rack = rack;
+    internal BustleState(AmmoRack rack)
+    { Rack = rack; Semi = rack.VehicleObject?.GUID == SemiAutoloader.PartGuid; }
 }
 
 internal static class BustleRuntime
@@ -50,7 +52,7 @@ internal static class BustleRuntime
     }
     private static int Count<T>(Il2CppSystem.Collections.Generic.IReadOnlyList<T> list) =>
         list.Cast<Il2CppSystem.Collections.Generic.IReadOnlyCollection<T>>().Count;
-    internal static bool IsPart(AmmoRack rack) => rack.VehicleObject?.GUID == PartGuid;
+    internal static bool IsPart(AmmoRack rack) => rack.VehicleObject?.GUID == PartGuid || rack.VehicleObject?.GUID == SemiAutoloader.PartGuid;
     internal static BustleState State(AmmoRack rack)
     {
         if (!States.TryGetValue(rack.Pointer, out var state)) States[rack.Pointer] = state = new(rack);
@@ -70,6 +72,7 @@ internal static class BustleRuntime
     }
     internal static bool Eligible(BustleState state, Cannon cannon)
     {
+        if (state.Semi && !SemiAutoloader.Available) return false;
         // Live health/installation checks still precede cached spatial checks.
         if (!state.Enabled || state.CannonId != cannon.VUID.Value || !state.Rack.IsInstalled || state.Rack.HealthFraction <= 0) return false;
         if (state.EligibleFrame == Time.frameCount && state.CachedCannon == cannon.Pointer) return state.CachedEligible;
@@ -79,10 +82,12 @@ internal static class BustleRuntime
             Distance(state, cannon) < MaximumDistance;
     }
     internal static double MaximumDistance => CannonBreech.MinimumOperateHandDistance;
-    internal static bool HasDesign(Cannon cannon) => Racks(cannon).Any(s => Eligible(s, cannon));
+    internal static bool HasDesign(Cannon cannon) => Racks(cannon).Any(s => !s.Semi && Eligible(s, cannon));
     internal static UnityEngine.Vector3 FeedLocalPosition(AmmoRack rack)
     {
-        var outlet = BustleFeedGeometry.Outlet(rack.boundsSize.x, rack.boundsSize.z, rack.projectileSizeID.Caliber, State(rack).MirrorFeedArm);
+        var state = State(rack);
+        var outlet = state.Semi ? SemiAssistPolicy.Outlet(rack.boundsSize.x,rack.boundsSize.z,rack.projectileSizeID.Caliber,state.MirrorFeedArm) :
+            BustleFeedGeometry.Outlet(rack.boundsSize.x, rack.boundsSize.z, rack.projectileSizeID.Caliber, state.MirrorFeedArm);
         return (rack.boundsCollider?.Centre ?? UnityEngine.Vector3.zero) +
             new UnityEngine.Vector3((float)outlet.X, (float)outlet.Y, (float)outlet.Z);
     }
@@ -212,9 +217,11 @@ internal static class BustleRuntime
             if (!request.IsMatch(supply.Cast<IAmmoSource>())) continue;
             task.Request = request;
             if (task.State == LoadState.NeverLoaded) task.currentRequest = LoadRequest.Unused;
+            if (state.Semi) SemiAutoloader.Track(state);
             task.rack = supply.Cast<IAmmoSource>();
             task.currentLoadInfo = state.Rack.LoadInfo;
-            SetTimings(task, state, cannon);
+            if (state.Semi) SemiAutoloader.InitializeTimings(task,state,cannon);
+            else SetTimings(task, state, cannon);
             return true;
         }
         return false;
@@ -225,7 +232,7 @@ internal static class BustleRuntime
         if (cannon == null || task.rack == null) return false;
         foreach (var candidate in VehicleLoadIndex.Get(cannon).Bustles)
         {
-            if (candidate.Rack.behaviour?.Pointer != task.rack.Pointer || !Eligible(candidate, cannon)) continue;
+            if (candidate.Semi || candidate.Rack.behaviour?.Pointer != task.rack.Pointer || !Eligible(candidate, cannon)) continue;
             state = candidate;
             return true;
         }
@@ -304,5 +311,6 @@ internal static class BustleRuntime
             cannonKey != null ? info.GetInt32(cannonKey) : -1, cannonKey != null);
     }
     [HarmonyPrefix, HarmonyPatch(typeof(VehicleComponent), nameof(VehicleComponent.ReleaseInternal))]
-    private static void Release(VehicleComponent __instance) => States.Remove(__instance.Pointer);
+    private static void Release(VehicleComponent __instance)
+    { SemiAutoloader.Forget(__instance.Pointer); States.Remove(__instance.Pointer); }
 }

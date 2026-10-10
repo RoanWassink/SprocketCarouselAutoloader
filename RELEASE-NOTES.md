@@ -1,14 +1,18 @@
-# Sprocket Carousel Autoloader v0.2.12 — beta
+# Carousel Autoloader 0.2.14 — Beta
 
-- **Mirror feed arm:** move the bustle rammer and fork to the opposite side. Feed distance follows the selected fork, and each part remembers its setting when saving and loading.
-- **Compatible settings migration:** existing vehicle saves remain readable. New saves use neutral settings identifiers; the part GUID remains unchanged. An old configuration is copied only when the new configuration is absent.
+## New in 0.2.14
 
-Automatic loading, finite ammunition, crew replenishment, reload balance and the Howden/Russian recordings are unchanged.
+- **Static Russian-style carousel model:** the basket contains visible ammunition that follows the native magazine stock.
+- **Crew-required assisted loader:** a placeable ready magazine and mechanical loading aid for large ammunition. Assistance scales smoothly with the full cartridge's native mass and length. Smaller, lighter rounds can be faster by hand.
+- **Distinct assisted-loader icon:** an autoloader icon plus a crew silhouette identifies the crew-operated option.
+- **Accurate assisted countdown:** displayed time and progress account for the real handling speed throughout the cycle.
 
-**Update:** replace the existing DLL. Copy `sprocketBustleAutoloaderPart.json`, then remove the older `roanBustleAutoloaderPart.json` from the same Parts folder. Keep backups of your vehicles and settings, and keep only one DLL version. Older plugin versions cannot read the newly named save settings; use pre-update vehicle backups when rolling back.
+### Set up an assisted loader
 
-Requires Sprocket 0.2.55.5 and a working Sprocket Mod Loader / BepInEx 6 IL2CPP setup. The loader is separate; Quality of Life is optional. See README for installation and usage.
+Place the assisted-loader part, assign its ammunition reference to the intended cannon, and give that cannon a healthy working crew loader. Keep its feed endpoint within the native loading reach, on the same turret. Set the native rack size and fill: stock remains finite. The mechanical handoff, distance, crew efficiency and preparation all contribute to loading time; it has no guaranteed reload time per calibre. Replenishment uses compatible ordinary reserve ammunition and real crew work.
 
-[Support my ChatGPT budget and help me reverse engineer Sprocket to make more mods](https://www.paypal.com/donate/?hosted_button_id=7PE3SDBETXFQ6).
+The carousel appearance is static; rotating or moving-shell animations are not included. Assisted loading does not remove the need for crew or create ammunition.
 
 <!-- sp-compat {"hamish.sprocket": "0.2.55.5", "bepinex.bepinex": "6.0.0-be.788"} -->
+
+[Support development](https://www.paypal.com/donate/?hosted_button_id=7PE3SDBETXFQ6).

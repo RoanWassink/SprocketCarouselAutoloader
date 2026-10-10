@@ -11,10 +11,12 @@ internal static class BustleVisuals
 {
     private sealed record Visual(GameObject Root, Material Black, Material Steel);
     private static readonly Dictionary<IntPtr, Visual> Models = new();
-    private static Sprite? icon;
-    internal static Sprite Icon()
+    private static Sprite? icon, semiIcon;
+    private static Texture2D? iconTexture, semiIconTexture;
+    internal static Sprite Icon(bool assisted = false)
     {
-        if (icon != null) return icon;
+        var cached=assisted ? semiIcon : icon;
+        if(cached!=null) return cached;
         var texture = new Texture2D(128, 128, TextureFormat.RGBA32, false);
         var pixels = new Color[128 * 128];
         void Rect(int x, int y, int w, int h, Color color)
@@ -29,17 +31,38 @@ internal static class BustleVisuals
         }
         Rect(84, 60, 32, 9, edge); Rect(107, 38, 9, 31, edge);
         Rect(98, 33, 22, 7, new Color(.32f, .65f, .83f, 1));
-        texture.SetPixels(pixels); texture.Apply(); texture.name = "Bustle autoloader icon";
-        icon = Sprite.Create(texture, new Rect(0, 0, 128, 128), new Vector2(.5f, .5f), 128);
+        if(assisted)
+        {
+            void Circle(int cx,int cy,int radius,Color color)
+            {
+                for(int y=Math.Max(0,cy-radius);y<=Math.Min(127,cy+radius);y++)
+                    for(int x=Math.Max(0,cx-radius);x<=Math.Min(127,cx+radius);x++)
+                        if((x-cx)*(x-cx)+(y-cy)*(y-cy)<=radius*radius) pixels[y*128+x]=color;
+            }
+            var crew=new Color(.96f,.90f,.72f,1);
+            Circle(102,103,23,edge); Circle(102,103,21,black);
+            Circle(102,112,6,crew);
+            Circle(102,94,10,crew); Rect(92,87,21,8,crew);
+        }
+        texture.SetPixels(pixels); texture.Apply();
+        texture.name=assisted ? "Assisted autoloader crew icon" : "Bustle autoloader icon";
+        texture.hideFlags=HideFlags.DontUnloadUnusedAsset;
+        var created=Sprite.Create(texture,new Rect(0,0,128,128),new Vector2(.5f,.5f),128);
+        created.name=texture.name; created.hideFlags=HideFlags.DontUnloadUnusedAsset;
+        if(assisted) { semiIconTexture=texture;semiIcon=created; }
+        else { iconTexture=texture;icon=created; }
         var previewFolder = System.IO.Path.Combine(BepInEx.Paths.GameRootPath, "Mods", "CarouselAutoloader", "research");
         if (System.IO.Directory.Exists(previewFolder))
-            System.IO.File.WriteAllBytes(System.IO.Path.Combine(previewFolder, "bustle-icon.png"), ImageConversion.EncodeToPNG(texture).ToArray());
-        return icon;
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(previewFolder, assisted ? "assisted-loader-icon.png" : "bustle-icon.png"), ImageConversion.EncodeToPNG(texture).ToArray());
+        return created;
     }
     // The native icon getter shares its RVA with unrelated getters. Set the card field instead of detouring it.
     [HarmonyPostfix, HarmonyPatch(typeof(PartDefinitionCardFactory), nameof(PartDefinitionCardFactory.CreateCard))]
     private static void CardCreated(PartDisplayCard __result)
-    { if (__result?.PartGuid == BustleRuntime.PartGuid) __result.Icon = Icon(); }
+    {
+        if(__result?.PartGuid==SemiAutoloader.PartGuid) __result.Icon=Icon(assisted:true);
+        else if(__result?.PartGuid==BustleRuntime.PartGuid) __result.Icon=Icon();
+    }
 
     private static void Box(Transform parent, Material material, string name, Vector3 position, Vector3 size)
     {
@@ -74,7 +97,7 @@ internal static class BustleVisuals
             Models[__instance.Pointer] = new(root, black, steel);
             var d = __instance.boundsSize;
             var sideSign = BustleRuntime.State(__instance).MirrorFeedArm ? -1f : 1f;
-            var scale = (float)BustleFeedGeometry.Scale(__instance.projectileSizeID.Caliber);
+            var scale = (float)(BustleRuntime.State(__instance).Semi ? SemiAssistPolicy.ArmScale(__instance.projectileSizeID.Caliber) : BustleFeedGeometry.Scale(__instance.projectileSizeID.Caliber));
             float x = Mathf.Max(.025f, d.x), y = Mathf.Max(.025f, d.y), z = Mathf.Max(.025f, d.z), t = .035f * scale;
             Box(root.transform, black, "Base tray", new(0, -y / 2, 0), new(x + t * 2, t, z + t * 2));
             foreach (float side in new[] { -1f, 1f })
@@ -84,7 +107,9 @@ internal static class BustleVisuals
             }
             Box(root.transform, black, "Rammer support", new(sideSign * (x / 2 + .055f * scale), 0, 0), new(.07f * scale, y + .12f * scale, .09f * scale));
             Box(root.transform, steel, "Feed arm", new(sideSign * (x / 2 + .055f * scale), .05f * scale, z / 2 + .17f * scale), new(.045f * scale, .045f * scale, .34f * scale));
-            var outlet = BustleFeedGeometry.Outlet(d.x, d.z, __instance.projectileSizeID.Caliber, BustleRuntime.State(__instance).MirrorFeedArm);
+            var state = BustleRuntime.State(__instance);
+            var outlet = state.Semi ? SemiAssistPolicy.Outlet(d.x,d.z,__instance.projectileSizeID.Caliber,state.MirrorFeedArm) :
+                BustleFeedGeometry.Outlet(d.x, d.z, __instance.projectileSizeID.Caliber, state.MirrorFeedArm);
             Box(root.transform, black, "Loading fork", new((float)outlet.X, (float)outlet.Y, (float)outlet.Z - .0175f * scale), new(.20f * scale, .07f * scale, .035f * scale));
             root.SetActive(nativeModel.Visible);
         });
